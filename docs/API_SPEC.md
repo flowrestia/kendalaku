@@ -85,6 +85,16 @@ Jika terjadi kegagalan/error:
   - `from` & `to` (filter rentang tanggal `created_at`)
   - `is_archived` (boolean, default false)
   - `is_overdue` (boolean, filter kendala yang melewati tenggat)
+- **Response Fields Termasuk Relasi (JOIN Tunggal & Konsisten)**:
+  - `kode_pesanan` (string): Nomor invoice/kode pesanan terkait.
+  - `nama_pelanggan` (string): Nama pemesan.
+  - `category_nama` (string): Nama kategori kendala.
+  - `category_warna_hex` (string): Warna identitas kategori (contoh `#EF4444`, default `#4F46E5`).
+  - `category_ikon` (string): Nama ikon kategori (contoh `alarm_rounded`, default `warning_amber_rounded`).
+  - `assigned_nama` (string): Nama petugas yang ditugaskan (atau `"-"` jika belum ada).
+  - `created_by_nama` (string): Nama pembuat laporan kendala.
+  - `is_overdue` (boolean): `true` jika status belum selesai/ditolak dan waktu sekarang melewati `tenggat_at`.
+  *(Catatan: Field alias lama seperti `nama_kategori`, `warna_kategori`, `ikon_kategori`, `nama_petugas`, `nama_pembuat` telah dihapus demi kebersihan payload JSON).*
 
 ### `POST /api/v1/issues`
 - **Request Body**:
@@ -101,7 +111,7 @@ Jika terjadi kegagalan/error:
   ```
 
 ### `GET /api/v1/issues/:id`
-- Mengembalikan detail kendala, data pesanan simulasi, info pelapor & petugas, serta lampiran.
+- Mengembalikan detail kendala lengkap dengan field relasi (`kode_pesanan`, `nama_pelanggan`, `category_nama`, `category_warna_hex`, `category_ikon`, `assigned_nama`, `created_by_nama`), dan daftar lampiran.
 
 ### `PUT /api/v1/issues/:id`
 - Memperbarui data kendala (judul, deskripsi, prioritas, penugasan, tenggat_at).
@@ -146,21 +156,77 @@ Jika terjadi kegagalan/error:
 
 ## 6. Dashboard & Analitik (`/api/v1/dashboard`)
 
-- `GET /api/v1/dashboard/summary`:
-  - Total kendala, baru, sedang diproses, selesai, dan total terlambat (overdue).
-  - Rata-rata waktu penyelesaian (dalam jam) dan persentase kendala terselesaikan.
-- `GET /api/v1/dashboard/by-category`:
-  - Jumlah dan persentase kendala per kategori (untuk donat chart).
-- `GET /api/v1/dashboard/trend?period=7d|30d|12m`:
-  - Data time-series jumlah kendala masuk dan kendala selesai.
-- `GET /api/v1/dashboard/attention`:
-  - Daftar kendala yang melewati tenggat atau memiliki prioritas kritis.
+### `GET /api/v1/dashboard/summary`
+- Mengembalikan metrik ringkasan kinerja penanganan kendala:
+  - `total`: Total kendala aktif (tidak diarsip).
+  - `baru`, `sedang_diproses`, `menunggu_informasi`, `selesai`, `ditolak`.
+  - `terlambat`: Total kendala belum selesai/ditolak yang melewati `tenggat_at`.
+  - `rata_rata_waktu_jam`: Rata-rata durasi penyelesaian (jam) untuk kendala berstatus selesai.
+  - `persentase_selesai`: Persentase kendala berstatus selesai dari total kendala (%).
+
+### `GET /api/v1/dashboard/by-category`
+- Mengembalikan distribusi kendala per kategori (`category_id`, `nama`, `warna_hex`, `ikon`, `total`, `persentase`) untuk visualisasi Donut Chart.
+
+### `GET /api/v1/dashboard/trend?period=7d|30d|12m`
+- Query param: `period` (`7d` [default], `30d`, atau `12m`).
+- Mengembalikan deret waktu:
+  ```json
+  [
+    {
+      "label": "2026-10-20",
+      "tanggal": "2026-10-20",
+      "total_masuk": 4,
+      "total_selesai": 2
+    }
+  ]
+  ```
 
 ---
 
-## 7. Laporan & Ekspor (`/api/v1/reports`)
+## 7. Rekap Laporan & Ekspor CSV (`/api/v1/reports`)
 
-- `GET /api/v1/reports/recap?from=&to=`:
-  - Matriks rekapitulasi performa kendala per kategori dan per status.
-- `GET /api/v1/reports/export.csv?from=&to=`:
-  - Download file spreadsheet CSV data kendala lengkap dengan header resmi.
+### `GET /api/v1/reports/recap?from=YYYY-MM-DD&to=YYYY-MM-DD`
+- Query params: `from` dan `to` (opsional rentang tanggal pelaporan).
+- Response:
+  ```json
+  {
+    "total_kendala": 40,
+    "kategori_paling_sering": "Pesanan Terlambat Diproses",
+    "rekap_status": {
+      "baru": 10,
+      "sedang_diproses": 12,
+      "menunggu_informasi": 8,
+      "selesai": 7,
+      "ditolak": 3
+    },
+    "per_kategori": [
+      {
+        "category_id": 1,
+        "nama": "Pesanan Terlambat Diproses",
+        "warna_hex": "#EF4444",
+        "total": 12,
+        "status": {
+          "baru": 3,
+          "sedang_diproses": 4,
+          "menunggu_informasi": 2,
+          "selesai": 2,
+          "ditolak": 1
+        }
+      }
+    ]
+  }
+  ```
+
+### `GET /api/v1/reports/export.csv?from=YYYY-MM-DD&to=YYYY-MM-DD`
+- Mengembalikan file CSV streaming dengan header HTTP:
+  - `Content-Disposition: attachment; filename=laporan_kendala.csv`
+  - `Content-Type: text/csv; charset=utf-8`
+  - Dilengkapi byte order mark (UTF-8 BOM `\xEF\xBB\xBF`) agar langsung terbaca rapi dengan aksen karakter di Microsoft Excel dan Google Sheets.
+
+---
+
+## 8. Riwayat Aktivitas (`/api/v1/activities`)
+
+### `GET /api/v1/activities?limit=20`
+- Query param: `limit` (default 20, max 100).
+- Mengembalikan log aktivitas transisi penanganan kendala dari seluruh tim (audit trail).

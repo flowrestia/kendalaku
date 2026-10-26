@@ -79,16 +79,16 @@ type OrderIssue struct {
 	UpdatedAt           time.Time  `db:"updated_at" json:"updated_at"`
 	ResolvedAt          *time.Time `db:"resolved_at" json:"resolved_at"`
 
-	// Join / Relasi fields untuk kemudahan API
-	KodePesanan       string `db:"kode_pesanan" json:"kode_pesanan,omitempty"`
-	NamaPelanggan     string `db:"nama_pelanggan" json:"nama_pelanggan,omitempty"`
-	ProdukPesanan     string `db:"produk_pesanan" json:"produk_pesanan,omitempty"`
-	NamaKategori      string `db:"nama_kategori" json:"nama_kategori,omitempty"`
-	WarnaKategori     string `db:"warna_kategori" json:"warna_kategori,omitempty"`
-	IkonKategori      string `db:"ikon_kategori" json:"ikon_kategori,omitempty"`
-	NamaPetugas       string `db:"nama_petugas" json:"nama_petugas,omitempty"`
-	NamaPembuat       string `db:"nama_pembuat" json:"nama_pembuat,omitempty"`
-	IsOverdue         bool   `db:"is_overdue" json:"is_overdue"`
+	// Join / Relasi fields lewat JOIN
+	KodePesanan      string `db:"kode_pesanan" json:"kode_pesanan"`
+	NamaPelanggan    string `db:"nama_pelanggan" json:"nama_pelanggan"`
+	ProdukPesanan    string `db:"produk_pesanan" json:"produk_pesanan,omitempty"`
+	CategoryNama     string `db:"category_nama" json:"category_nama"`
+	CategoryWarnaHex string `db:"category_warna_hex" json:"category_warna_hex"`
+	CategoryIkon     string `db:"category_ikon" json:"category_ikon"`
+	AssignedNama     string `db:"assigned_nama" json:"assigned_nama"`
+	CreatedByNama    string `db:"created_by_nama" json:"created_by_nama"`
+	IsOverdue        bool   `db:"is_overdue" json:"is_overdue"`
 }
 
 // Model Transaksi Penanganan Kendala

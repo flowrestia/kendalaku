@@ -344,3 +344,79 @@ func (h *Handler) GetIssueTransitions(c *gin.Context) {
 
 	response.Success(c, http.StatusOK, transitions)
 }
+
+// ---------------- FASE 3: DASHBOARD, REPORT & ACTIVITY HANDLERS ----------------
+
+func (h *Handler) GetDashboardSummary(c *gin.Context) {
+	summary, err := h.svc.GetDashboardSummary()
+	if err != nil {
+		response.InternalServerError(c, err.Error())
+		return
+	}
+	response.Success(c, http.StatusOK, summary)
+}
+
+func (h *Handler) GetDashboardByCategory(c *gin.Context) {
+	stats, err := h.svc.GetCategoryStats()
+	if err != nil {
+		response.InternalServerError(c, err.Error())
+		return
+	}
+	response.Success(c, http.StatusOK, stats)
+}
+
+func (h *Handler) GetDashboardTrend(c *gin.Context) {
+	period := c.DefaultQuery("period", "7d")
+	trend, err := h.svc.GetTrendData(period)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	response.Success(c, http.StatusOK, trend)
+}
+
+func (h *Handler) GetReportRecap(c *gin.Context) {
+	from := c.Query("from")
+	to := c.Query("to")
+
+	recap, err := h.svc.GetReportRecap(from, to)
+	if err != nil {
+		response.InternalServerError(c, err.Error())
+		return
+	}
+	response.Success(c, http.StatusOK, recap)
+}
+
+func (h *Handler) ExportReportCSV(c *gin.Context) {
+	from := c.Query("from")
+	to := c.Query("to")
+
+	buf, err := h.svc.ExportReportCSV(from, to)
+	if err != nil {
+		response.InternalServerError(c, "Gagal membuat laporan CSV: "+err.Error())
+		return
+	}
+
+	fileName := "laporan_kendala.csv"
+	if from != "" && to != "" {
+		fileName = "laporan_kendala_" + from + "_sd_" + to + ".csv"
+	}
+
+	c.Header("Content-Description", "File Transfer")
+	c.Header("Content-Disposition", "attachment; filename="+fileName)
+	c.Header("Content-Type", "text/csv; charset=utf-8")
+	c.Data(http.StatusOK, "text/csv; charset=utf-8", buf.Bytes())
+}
+
+func (h *Handler) GetActivityLogs(c *gin.Context) {
+	limitStr := c.DefaultQuery("limit", "20")
+	limit, _ := strconv.Atoi(limitStr)
+
+	logs, err := h.svc.GetActivityLogs(limit)
+	if err != nil {
+		response.InternalServerError(c, err.Error())
+		return
+	}
+	response.Success(c, http.StatusOK, logs)
+}
+

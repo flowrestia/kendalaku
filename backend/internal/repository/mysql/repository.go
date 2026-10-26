@@ -175,9 +175,11 @@ func (r *Repository) GetIssueByID(id uint64) (*domain.OrderIssue, error) {
 				oi.prioritas, oi.status, oi.tenggat_at, oi.assigned_to, oi.catatan_penyelesaian, 
 				oi.is_archived, oi.created_by, oi.created_at, oi.updated_at, oi.resolved_at,
 				o.kode_pesanan, o.nama_pelanggan, o.produk AS produk_pesanan,
-				c.nama AS nama_kategori, c.warna_hex AS warna_kategori, c.ikon AS ikon_kategori,
-				COALESCE(u_assigned.nama, '-') AS nama_petugas,
-				u_creator.nama AS nama_pembuat,
+				c.nama AS category_nama, 
+				COALESCE(NULLIF(c.warna_hex, ''), '#4F46E5') AS category_warna_hex, 
+				COALESCE(NULLIF(c.ikon, ''), 'warning_amber_rounded') AS category_ikon,
+				COALESCE(u_assigned.nama, '-') AS assigned_nama,
+				u_creator.nama AS created_by_nama,
 				(oi.status NOT IN ('selesai', 'ditolak') AND oi.tenggat_at < UTC_TIMESTAMP()) AS is_overdue
 			  FROM order_issues oi
 			  JOIN orders o ON oi.order_id = o.id
@@ -328,9 +330,11 @@ func (r *Repository) ListIssues(filter domain.IssueFilter) ([]domain.OrderIssue,
 			oi.prioritas, oi.status, oi.tenggat_at, oi.assigned_to, oi.catatan_penyelesaian, 
 			oi.is_archived, oi.created_by, oi.created_at, oi.updated_at, oi.resolved_at,
 			o.kode_pesanan, o.nama_pelanggan, o.produk AS produk_pesanan,
-			c.nama AS nama_kategori, c.warna_hex AS warna_kategori, c.ikon AS ikon_kategori,
-			COALESCE(u_assigned.nama, '-') AS nama_petugas,
-			u_creator.nama AS nama_pembuat,
+			c.nama AS category_nama, 
+			COALESCE(NULLIF(c.warna_hex, ''), '#4F46E5') AS category_warna_hex, 
+			COALESCE(NULLIF(c.ikon, ''), 'warning_amber_rounded') AS category_ikon,
+			COALESCE(u_assigned.nama, '-') AS assigned_nama,
+			u_creator.nama AS created_by_nama,
 			(oi.status NOT IN ('selesai', 'ditolak') AND oi.tenggat_at < UTC_TIMESTAMP()) AS is_overdue
 		FROM order_issues oi
 		JOIN orders o ON oi.order_id = o.id
@@ -355,3 +359,201 @@ func (r *Repository) ListIssues(filter domain.IssueFilter) ([]domain.OrderIssue,
 func (r *Repository) BeginTx() (*sqlx.Tx, error) {
 	return r.db.Beginx()
 }
+
+// ---------------- FASE 3: DASHBOARD & REPORT REPOSITORY ----------------
+
+type RawSummaryStats struct {
+	Total             int     `db:"total"`
+	Baru              int     `db:"baru"`
+	SedangDiproses    int     `db:"sedang_diproses"`
+	MenungguInformasi int     `db:"menunggu_informasi"`
+	Selesai           int     `db:"selesai"`
+	Ditolak           int     `db:"ditolak"`
+	Terlambat         int     `db:"terlambat"`
+	TotalDurationSec  sql.NullFloat64 `db:"total_duration_sec"`
+	ResolvedCount     int     `db:"resolved_count"`
+}
+
+func (r *Repository) GetDashboardSummaryStats() (*RawSummaryStats, error) {
+	query := `
+		SELECT 
+			COUNT(*) AS total,
+			COALESCE(SUM(CASE WHEN status = 'baru' THEN 1 ELSE 0 END), 0) AS baru,
+			COALESCE(SUM(CASE WHEN status = 'sedang_diproses' THEN 1 ELSE 0 END), 0) AS sedang_diproses,
+			COALESCE(SUM(CASE WHEN status = 'menunggu_informasi' THEN 1 ELSE 0 END), 0) AS menunggu_informasi,
+			COALESCE(SUM(CASE WHEN status = 'selesai' THEN 1 ELSE 0 END), 0) AS selesai,
+			COALESCE(SUM(CASE WHEN status = 'ditolak' THEN 1 ELSE 0 END), 0) AS ditolak,
+			COALESCE(SUM(CASE WHEN status NOT IN ('selesai', 'ditolak') AND tenggat_at < UTC_TIMESTAMP() THEN 1 ELSE 0 END), 0) AS terlambat,
+			COALESCE(SUM(CASE WHEN status = 'selesai' AND resolved_at IS NOT NULL THEN TIMESTAMPDIFF(SECOND, created_at, resolved_at) ELSE 0 END), 0) AS total_duration_sec,
+			COALESCE(SUM(CASE WHEN status = 'selesai' AND resolved_at IS NOT NULL THEN 1 ELSE 0 END), 0) AS resolved_count
+		FROM order_issues
+		WHERE is_archived = 0`
+
+	var s RawSummaryStats
+	err := r.db.Get(&s, query)
+	if err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
+
+func (r *Repository) GetCategoryStats() ([]domain.CategoryStatResponse, error) {
+	query := `
+		SELECT 
+			c.id AS category_id,
+			c.nama,
+			COALESCE(NULLIF(c.warna_hex, ''), '#4F46E5') AS warna_hex,
+			COALESCE(NULLIF(c.ikon, ''), 'warning_amber_rounded') AS ikon,
+			COUNT(oi.id) AS total
+		FROM problem_categories c
+		LEFT JOIN order_issues oi ON c.id = oi.category_id AND oi.is_archived = 0
+		GROUP BY c.id, c.nama, c.warna_hex, c.ikon
+		ORDER BY total DESC, c.id ASC`
+
+	var list []domain.CategoryStatResponse
+	err := r.db.Select(&list, query)
+	return list, err
+}
+
+type TrendRow struct {
+	DateGroup    string `db:"date_group"`
+	TotalMasuk   int    `db:"total_masuk"`
+	TotalSelesai int    `db:"total_selesai"`
+}
+
+func (r *Repository) GetTrendData7Days() ([]TrendRow, error) {
+	query := `
+		SELECT 
+			DATE_FORMAT(d.dt, '%Y-%m-%d') AS date_group,
+			COALESCE(SUM(CASE WHEN DATE(oi.created_at) = d.dt AND oi.is_archived = 0 THEN 1 ELSE 0 END), 0) AS total_masuk,
+			COALESCE(SUM(CASE WHEN oi.status = 'selesai' AND oi.resolved_at IS NOT NULL AND DATE(oi.resolved_at) = d.dt AND oi.is_archived = 0 THEN 1 ELSE 0 END), 0) AS total_selesai
+		FROM (
+			SELECT CURDATE() - INTERVAL (a.a) DAY AS dt
+			FROM (
+				SELECT 6 AS a UNION ALL SELECT 5 UNION ALL SELECT 4 UNION ALL SELECT 3 UNION ALL SELECT 2 UNION ALL SELECT 1 UNION ALL SELECT 0
+			) a
+		) d
+		LEFT JOIN order_issues oi ON (DATE(oi.created_at) = d.dt OR (oi.status = 'selesai' AND DATE(oi.resolved_at) = d.dt))
+		GROUP BY d.dt
+		ORDER BY d.dt ASC`
+
+	var rows []TrendRow
+	err := r.db.Select(&rows, query)
+	return rows, err
+}
+
+func (r *Repository) GetTrendData30Days() ([]TrendRow, error) {
+	query := `
+		SELECT 
+			DATE_FORMAT(d.dt, '%Y-%m-%d') AS date_group,
+			COALESCE(SUM(CASE WHEN DATE(oi.created_at) = d.dt AND oi.is_archived = 0 THEN 1 ELSE 0 END), 0) AS total_masuk,
+			COALESCE(SUM(CASE WHEN oi.status = 'selesai' AND oi.resolved_at IS NOT NULL AND DATE(oi.resolved_at) = d.dt AND oi.is_archived = 0 THEN 1 ELSE 0 END), 0) AS total_selesai
+		FROM (
+			SELECT CURDATE() - INTERVAL (t.n) DAY AS dt
+			FROM (
+				SELECT a.i + b.i*10 AS n
+				FROM (SELECT 0 AS i UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) a
+				CROSS JOIN (SELECT 0 AS i UNION ALL SELECT 1 UNION ALL SELECT 2) b
+			) t
+			WHERE t.n <= 29
+		) d
+		LEFT JOIN order_issues oi ON (DATE(oi.created_at) = d.dt OR (oi.status = 'selesai' AND DATE(oi.resolved_at) = d.dt))
+		GROUP BY d.dt
+		ORDER BY d.dt ASC`
+
+	var rows []TrendRow
+	err := r.db.Select(&rows, query)
+	return rows, err
+}
+
+func (r *Repository) GetTrendData12Months() ([]TrendRow, error) {
+	query := `
+		SELECT 
+			DATE_FORMAT(d.m_first, '%Y-%m') AS date_group,
+			COALESCE(SUM(CASE WHEN DATE_FORMAT(oi.created_at, '%Y-%m') = DATE_FORMAT(d.m_first, '%Y-%m') AND oi.is_archived = 0 THEN 1 ELSE 0 END), 0) AS total_masuk,
+			COALESCE(SUM(CASE WHEN oi.status = 'selesai' AND oi.resolved_at IS NOT NULL AND DATE_FORMAT(oi.resolved_at, '%Y-%m') = DATE_FORMAT(d.m_first, '%Y-%m') AND oi.is_archived = 0 THEN 1 ELSE 0 END), 0) AS total_selesai
+		FROM (
+			SELECT (CURDATE() - INTERVAL (m.n) MONTH) AS m_first
+			FROM (
+				SELECT 11 AS n UNION ALL SELECT 10 UNION ALL SELECT 9 UNION ALL SELECT 8 UNION ALL
+				SELECT 7 UNION ALL SELECT 6 UNION ALL SELECT 5 UNION ALL SELECT 4 UNION ALL
+				SELECT 3 UNION ALL SELECT 2 UNION ALL SELECT 1 UNION ALL SELECT 0
+			) m
+		) d
+		LEFT JOIN order_issues oi ON (DATE_FORMAT(oi.created_at, '%Y-%m') = DATE_FORMAT(d.m_first, '%Y-%m') OR (oi.status = 'selesai' AND DATE_FORMAT(oi.resolved_at, '%Y-%m') = DATE_FORMAT(d.m_first, '%Y-%m')))
+		GROUP BY DATE_FORMAT(d.m_first, '%Y-%m')
+		ORDER BY DATE_FORMAT(d.m_first, '%Y-%m') ASC`
+
+	var rows []TrendRow
+	err := r.db.Select(&rows, query)
+	return rows, err
+}
+
+func (r *Repository) GetIssuesForReport(from, to string) ([]domain.OrderIssue, error) {
+	var conditions []string
+	var args []interface{}
+
+	conditions = append(conditions, "oi.is_archived = 0")
+	if from != "" {
+		conditions = append(conditions, "oi.created_at >= ?")
+		args = append(args, from+" 00:00:00")
+	}
+	if to != "" {
+		conditions = append(conditions, "oi.created_at <= ?")
+		args = append(args, to+" 23:59:59")
+	}
+
+	whereClause := " WHERE " + strings.Join(conditions, " AND ")
+	query := fmt.Sprintf(`
+		SELECT 
+			oi.id, oi.kode_kendala, oi.order_id, oi.category_id, oi.judul, oi.deskripsi, 
+			oi.prioritas, oi.status, oi.tenggat_at, oi.assigned_to, oi.catatan_penyelesaian, 
+			oi.is_archived, oi.created_by, oi.created_at, oi.updated_at, oi.resolved_at,
+			o.kode_pesanan, o.nama_pelanggan, o.produk AS produk_pesanan,
+			c.nama AS category_nama, 
+			COALESCE(NULLIF(c.warna_hex, ''), '#4F46E5') AS category_warna_hex, 
+			COALESCE(NULLIF(c.ikon, ''), 'warning_amber_rounded') AS category_ikon,
+			COALESCE(u_assigned.nama, '-') AS assigned_nama,
+			u_creator.nama AS created_by_nama,
+			(oi.status NOT IN ('selesai', 'ditolak') AND oi.tenggat_at < UTC_TIMESTAMP()) AS is_overdue
+		FROM order_issues oi
+		JOIN orders o ON oi.order_id = o.id
+		JOIN problem_categories c ON oi.category_id = c.id
+		LEFT JOIN users u_assigned ON oi.assigned_to = u_assigned.id
+		JOIN users u_creator ON oi.created_by = u_creator.id
+		%s
+		ORDER BY oi.created_at DESC`, whereClause)
+
+	var items []domain.OrderIssue
+	err := r.db.Select(&items, query, args...)
+	return items, err
+}
+
+func (r *Repository) GetActivityLogs(limit int) ([]domain.ActivityLogItem, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 30
+	}
+
+	query := `
+		SELECT 
+			it.id,
+			it.issue_id,
+			oi.kode_kendala,
+			oi.judul AS judul_kendala,
+			it.status_sebelumnya,
+			it.status_baru,
+			it.catatan_tindakan,
+			it.oleh_user_id,
+			u.nama AS oleh_user_nama,
+			it.created_at
+		FROM issue_transactions it
+		JOIN order_issues oi ON it.issue_id = oi.id
+		JOIN users u ON it.oleh_user_id = u.id
+		ORDER BY it.id DESC
+		LIMIT ?`
+
+	var list []domain.ActivityLogItem
+	err := r.db.Select(&list, query, limit)
+	return list, err
+}
+

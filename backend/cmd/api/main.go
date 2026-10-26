@@ -94,6 +94,18 @@ func main() {
 			// Status Transitions & Riwayat
 			protected.POST("/issues/:id/transitions", h.TransitionStatus)
 			protected.GET("/issues/:id/transitions", h.GetIssueTransitions)
+
+			// Fase 3: Dashboard & Analitik
+			protected.GET("/dashboard/summary", h.GetDashboardSummary)
+			protected.GET("/dashboard/by-category", h.GetDashboardByCategory)
+			protected.GET("/dashboard/trend", h.GetDashboardTrend)
+
+			// Fase 3: Rekap Laporan & Ekspor CSV
+			protected.GET("/reports/recap", h.GetReportRecap)
+			protected.GET("/reports/export.csv", h.ExportReportCSV)
+
+			// Fase 3: Riwayat Aktivitas Seluruh Kendala
+			protected.GET("/activities", h.GetActivityLogs)
 		}
 	}
 

@@ -188,10 +188,28 @@ func SeedDatabase(db *sqlx.DB) error {
 		prioritas := prioritasList[rng.Intn(len(prioritasList))]
 		assignedTo := petugasList[rng.Intn(len(petugasList))]
 
-		// Hari mundur antara 1 sampai 60 hari yang lalu
-		daysAgo := rng.Intn(60)
-		createdTime := now.AddDate(0, 0, -daysAgo).Add(time.Duration(rng.Intn(12)) * time.Hour)
-		tenggatTime := createdTime.Add(time.Duration(24+rng.Intn(48)) * time.Hour)
+		var createdTime time.Time
+		var tenggatTime time.Time
+
+		if status == domain.StatusSelesai || status == domain.StatusDitolak {
+			// Kendala lampau (selesai atau ditolak) dalam rentang 1-45 hari lalu
+			daysAgo := 1 + rng.Intn(45)
+			createdTime = now.AddDate(0, 0, -daysAgo).Add(time.Duration(rng.Intn(12)) * time.Hour)
+			tenggatTime = createdTime.Add(time.Duration(24+rng.Intn(48)) * time.Hour)
+		} else {
+			// Kendala aktif: variasikan agar sebagian baru masuk dan sebagian punya tenggat aman di masa depan
+			// Sekitar 70% aktif punya tenggat di masa depan (tidak terlambat), 30% terlambat
+			isOverdueSample := (rng.Float64() < 0.25)
+			if isOverdueSample {
+				// Terlambat: dibuat 2-4 hari lalu dengan tenggat 24 jam lalu
+				createdTime = now.AddDate(0, 0, -(2 + rng.Intn(3))).Add(time.Duration(rng.Intn(6)) * time.Hour)
+				tenggatTime = now.Add(-time.Duration(6+rng.Intn(24)) * time.Hour)
+			} else {
+				// Tidak terlambat: dibuat hari ini atau 1-2 hari lalu dengan tenggat 1-3 hari ke depan
+				createdTime = now.Add(-time.Duration(rng.Intn(36)) * time.Hour)
+				tenggatTime = now.Add(time.Duration(12+rng.Intn(72)) * time.Hour)
+			}
+		}
 
 		var resolvedTime *time.Time
 		var catatanPenyelesaian *string

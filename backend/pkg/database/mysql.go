@@ -24,6 +24,11 @@ func InitDB(dsn string) (*sqlx.DB, error) {
 		return nil, err
 	}
 
-	log.Println("[INFO] Terhubung ke database MySQL dengan sukses")
+	// Pastikan sesi MySQL/MariaDB selalu dalam zona waktu UTC (+00:00)
+	if _, err := db.Exec("SET time_zone = '+00:00'"); err != nil {
+		log.Printf("[WARN] Tidak dapat menyetel SET time_zone: %v", err)
+	}
+
+	log.Println("[INFO] Terhubung ke database MySQL dengan sukses (Timezone: UTC)")
 	return db, nil
 }

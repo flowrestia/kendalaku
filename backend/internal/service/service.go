@@ -1,8 +1,11 @@
 package service
 
 import (
+	"bytes"
+	"encoding/csv"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/flowrestia/kendalaku/backend/internal/domain"
@@ -326,3 +329,301 @@ func (s *Service) GetIssueTransitions(issueID uint64) ([]domain.IssueTransaction
 	}
 	return s.repo.GetTransactionsByIssueID(issueID)
 }
+
+// ---------------- FASE 3: DASHBOARD & REPORT SERVICE ----------------
+
+// CalculateSummaryMetrics menghitung persentase selesai dan rata-rata waktu penyelesaian dalam jam
+func CalculateSummaryMetrics(total, selesai, resolvedCount int, totalDurationSec float64) (persentase float64, rataRataJam float64) {
+	if total > 0 {
+		persentase = math.Round((float64(selesai)/float64(total))*10000) / 100 // 2 digit desimal
+	}
+	if resolvedCount > 0 && totalDurationSec > 0 {
+		avgSec := totalDurationSec / float64(resolvedCount)
+		rataRataJam = math.Round((avgSec/3600.0)*100) / 100 // jam dengan 2 digit desimal
+	}
+	return persentase, rataRataJam
+}
+
+func (s *Service) GetDashboardSummary() (*domain.DashboardSummaryResponse, error) {
+	raw, err := s.repo.GetDashboardSummaryStats()
+	if err != nil {
+		return nil, fmt.Errorf("gagal mengambil statistik ringkasan: %w", err)
+	}
+
+	var durationSec float64
+	if raw.TotalDurationSec.Valid {
+		durationSec = raw.TotalDurationSec.Float64
+	}
+
+	persentase, rataRataJam := CalculateSummaryMetrics(raw.Total, raw.Selesai, raw.ResolvedCount, durationSec)
+
+	return &domain.DashboardSummaryResponse{
+		TotalKendala:              raw.Total,
+		Baru:                      raw.Baru,
+		SedangDiproses:            raw.SedangDiproses,
+		MenungguInformasi:         raw.MenungguInformasi,
+		Selesai:                   raw.Selesai,
+		Ditolak:                   raw.Ditolak,
+		Terlambat:                 raw.Terlambat,
+		RataRataWaktuPenyelesaian: rataRataJam,
+		PersentaseSelesai:         persentase,
+	}, nil
+}
+
+func (s *Service) GetCategoryStats() ([]domain.CategoryStatResponse, error) {
+	list, err := s.repo.GetCategoryStats()
+	if err != nil {
+		return nil, fmt.Errorf("gagal mengambil statistik kategori: %w", err)
+	}
+
+	totalAll := 0
+	for _, it := range list {
+		totalAll += it.Total
+	}
+
+	for i := range list {
+		if list[i].WarnaHex == "" {
+			list[i].WarnaHex = "#4F46E5"
+		}
+		if list[i].Ikon == "" {
+			list[i].Ikon = "warning_amber_rounded"
+		}
+		if totalAll > 0 {
+			list[i].Persentase = math.Round((float64(list[i].Total)/float64(totalAll))*10000) / 100
+		}
+	}
+
+	return list, nil
+}
+
+func (s *Service) GetTrendData(period string) ([]domain.TrendPointResponse, error) {
+	now := time.Now().UTC()
+
+	switch period {
+	case "7d", "":
+		rows, err := s.repo.GetTrendData7Days()
+		if err != nil {
+			return nil, fmt.Errorf("gagal mengambil tren: %w", err)
+		}
+		rowMap := make(map[string]mysql.TrendRow)
+		for _, r := range rows {
+			rowMap[r.DateGroup] = r
+		}
+
+		result := make([]domain.TrendPointResponse, 7)
+		for i := 6; i >= 0; i-- {
+			dt := now.AddDate(0, 0, -i).Format("2006-01-02")
+			r := rowMap[dt]
+			result[6-i] = domain.TrendPointResponse{
+				Label:        dt,
+				Tanggal:      dt,
+				TotalMasuk:   r.TotalMasuk,
+				TotalSelesai: r.TotalSelesai,
+			}
+		}
+		return result, nil
+
+	case "30d":
+		rows, err := s.repo.GetTrendData30Days()
+		if err != nil {
+			return nil, fmt.Errorf("gagal mengambil tren: %w", err)
+		}
+		rowMap := make(map[string]mysql.TrendRow)
+		for _, r := range rows {
+			rowMap[r.DateGroup] = r
+		}
+
+		result := make([]domain.TrendPointResponse, 30)
+		for i := 29; i >= 0; i-- {
+			dt := now.AddDate(0, 0, -i).Format("2006-01-02")
+			r := rowMap[dt]
+			result[29-i] = domain.TrendPointResponse{
+				Label:        dt,
+				Tanggal:      dt,
+				TotalMasuk:   r.TotalMasuk,
+				TotalSelesai: r.TotalSelesai,
+			}
+		}
+		return result, nil
+
+	case "12m":
+		rows, err := s.repo.GetTrendData12Months()
+		if err != nil {
+			return nil, fmt.Errorf("gagal mengambil tren: %w", err)
+		}
+		rowMap := make(map[string]mysql.TrendRow)
+		for _, r := range rows {
+			rowMap[r.DateGroup] = r
+		}
+
+		result := make([]domain.TrendPointResponse, 12)
+		for i := 11; i >= 0; i-- {
+			dt := now.AddDate(0, -i, 0).Format("2006-01")
+			r := rowMap[dt]
+			result[11-i] = domain.TrendPointResponse{
+				Label:        dt,
+				Tanggal:      dt,
+				TotalMasuk:   r.TotalMasuk,
+				TotalSelesai: r.TotalSelesai,
+			}
+		}
+		return result, nil
+
+	default:
+		return nil, errors.New("parameter period tidak valid, gunakan: 7d, 30d, atau 12m")
+	}
+}
+
+func (s *Service) GetReportRecap(from, to string) (*domain.ReportRecapResponse, error) {
+	issues, err := s.repo.GetIssuesForReport(from, to)
+	if err != nil {
+		return nil, fmt.Errorf("gagal mengambil data laporan: %w", err)
+	}
+
+	var rekapStatus domain.StatusBreakdown
+	categoryMap := make(map[uint64]*domain.CategoryRecapItem)
+
+	for _, it := range issues {
+		switch it.Status {
+		case domain.StatusBaru:
+			rekapStatus.Baru++
+		case domain.StatusSedangDiproses:
+			rekapStatus.SedangDiproses++
+		case domain.StatusMenungguInformasi:
+			rekapStatus.MenungguInformasi++
+		case domain.StatusSelesai:
+			rekapStatus.Selesai++
+		case domain.StatusDitolak:
+			rekapStatus.Ditolak++
+		}
+
+		item, exists := categoryMap[it.CategoryID]
+		if !exists {
+			item = &domain.CategoryRecapItem{
+				CategoryID: it.CategoryID,
+				Nama:       it.CategoryNama,
+				WarnaHex:   it.CategoryWarnaHex,
+				Total:      0,
+			}
+			categoryMap[it.CategoryID] = item
+		}
+		item.Total++
+
+		switch it.Status {
+		case domain.StatusBaru:
+			item.Status.Baru++
+		case domain.StatusSedangDiproses:
+			item.Status.SedangDiproses++
+		case domain.StatusMenungguInformasi:
+			item.Status.MenungguInformasi++
+		case domain.StatusSelesai:
+			item.Status.Selesai++
+		case domain.StatusDitolak:
+			item.Status.Ditolak++
+		}
+	}
+
+	var perKategori []domain.CategoryRecapItem
+	var topCategory *string
+	maxCount := -1
+
+	// Urutkan kategori berdasarkan total terbanyak
+	for _, item := range categoryMap {
+		perKategori = append(perKategori, *item)
+		if item.Total > maxCount {
+			maxCount = item.Total
+			catName := item.Nama
+			topCategory = &catName
+		}
+	}
+
+	return &domain.ReportRecapResponse{
+		TotalKendala:         len(issues),
+		KategoriPalingSering: topCategory,
+		RekapStatus:          rekapStatus,
+		PerKategori:          perKategori,
+	}, nil
+}
+
+func (s *Service) ExportReportCSV(from, to string) (*bytes.Buffer, error) {
+	issues, err := s.repo.GetIssuesForReport(from, to)
+	if err != nil {
+		return nil, fmt.Errorf("gagal mengambil data untuk ekspor: %w", err)
+	}
+
+	buf := new(bytes.Buffer)
+	// UTF-8 BOM agar rapi saat dibuka di Microsoft Excel
+	buf.Write([]byte{0xEF, 0xBB, 0xBF})
+
+	writer := csv.NewWriter(buf)
+
+	// Header Kolom CSV
+	header := []string{
+		"Kode Kendala",
+		"Nomor Pesanan",
+		"Nama Pelanggan",
+		"Kategori",
+		"Judul Kendala",
+		"Prioritas",
+		"Status",
+		"Petugas Penanganan",
+		"Pelapor",
+		"Tenggat Waktu",
+		"Status Terlambat",
+		"Tanggal Dilaporkan",
+		"Tanggal Selesai",
+		"Catatan Penyelesaian",
+	}
+	if err := writer.Write(header); err != nil {
+		return nil, err
+	}
+
+	for _, it := range issues {
+		isOverdueStr := "Tidak"
+		if it.IsOverdue {
+			isOverdueStr = "Ya"
+		}
+
+		resolvedStr := "-"
+		if it.ResolvedAt != nil {
+			resolvedStr = it.ResolvedAt.Format("2006-01-02 15:04:05")
+		}
+
+		catatan := "-"
+		if it.CatatanPenyelesaian != nil && *it.CatatanPenyelesaian != "" {
+			catatan = *it.CatatanPenyelesaian
+		}
+
+		row := []string{
+			it.KodeKendala,
+			it.KodePesanan,
+			it.NamaPelanggan,
+			it.CategoryNama,
+			it.Judul,
+			it.Prioritas,
+			it.Status,
+			it.AssignedNama,
+			it.CreatedByNama,
+			it.TenggatAt.Format("2006-01-02 15:04:05"),
+			isOverdueStr,
+			it.CreatedAt.Format("2006-01-02 15:04:05"),
+			resolvedStr,
+			catatan,
+		}
+		if err := writer.Write(row); err != nil {
+			return nil, err
+		}
+	}
+
+	writer.Flush()
+	if err := writer.Error(); err != nil {
+		return nil, err
+	}
+
+	return buf, nil
+}
+
+func (s *Service) GetActivityLogs(limit int) ([]domain.ActivityLogItem, error) {
+	return s.repo.GetActivityLogs(limit)
+}
+

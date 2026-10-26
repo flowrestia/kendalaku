@@ -72,3 +72,77 @@ type PaginatedResult struct {
 	Limit      int         `json:"limit"`
 	TotalPages int         `json:"total_pages"`
 }
+
+// ---------------- DTO FASE 3: DASHBOARD & REPORT ----------------
+
+// DashboardSummaryResponse untuk GET /api/v1/dashboard/summary
+type DashboardSummaryResponse struct {
+	TotalKendala             int     `json:"total"`
+	Baru                     int     `json:"baru"`
+	SedangDiproses           int     `json:"sedang_diproses"`
+	MenungguInformasi        int     `json:"menunggu_informasi"`
+	Selesai                  int     `json:"selesai"`
+	Ditolak                  int     `json:"ditolak"`
+	Terlambat                int     `json:"terlambat"`
+	RataRataWaktuPenyelesaian float64 `json:"rata_rata_waktu_jam"`
+	PersentaseSelesai        float64 `json:"persentase_selesai"`
+}
+
+// CategoryStatResponse untuk GET /api/v1/dashboard/by-category
+type CategoryStatResponse struct {
+	CategoryID uint64  `db:"category_id" json:"category_id"`
+	Nama       string  `db:"nama" json:"nama"`
+	WarnaHex   string  `db:"warna_hex" json:"warna_hex"`
+	Ikon       string  `db:"ikon" json:"ikon"`
+	Total      int     `db:"total" json:"total"`
+	Persentase float64 `db:"persentase" json:"persentase"`
+}
+
+// TrendPointResponse untuk GET /api/v1/dashboard/trend
+type TrendPointResponse struct {
+	Label          string `json:"label"` // Misal "2026-10-20" atau "Okt 2026"
+	Tanggal        string `json:"tanggal"`
+	TotalMasuk     int    `json:"total_masuk"`
+	TotalSelesai   int    `json:"total_selesai"`
+}
+
+// StatusBreakdown untuk rekap laporan
+type StatusBreakdown struct {
+	Baru              int `json:"baru"`
+	SedangDiproses    int `json:"sedang_diproses"`
+	MenungguInformasi int `json:"menunggu_informasi"`
+	Selesai           int `json:"selesai"`
+	Ditolak           int `json:"ditolak"`
+}
+
+// CategoryRecapItem untuk GET /api/v1/reports/recap
+type CategoryRecapItem struct {
+	CategoryID uint64          `json:"category_id"`
+	Nama       string          `json:"nama"`
+	WarnaHex   string          `json:"warna_hex"`
+	Total      int             `json:"total"`
+	Status     StatusBreakdown `json:"status"`
+}
+
+// ReportRecapResponse untuk GET /api/v1/reports/recap
+type ReportRecapResponse struct {
+	TotalKendala         int                 `json:"total_kendala"`
+	KategoriPalingSering *string             `json:"kategori_paling_sering"`
+	RekapStatus          StatusBreakdown     `json:"rekap_status"`
+	PerKategori          []CategoryRecapItem `json:"per_kategori"`
+}
+
+// ActivityLogItem untuk GET /api/v1/activities
+type ActivityLogItem struct {
+	ID               uint64    `db:"id" json:"id"`
+	IssueID          uint64    `db:"issue_id" json:"issue_id"`
+	KodeKendala      string    `db:"kode_kendala" json:"kode_kendala"`
+	JudulKendala     string    `db:"judul_kendala" json:"judul_kendala"`
+	StatusSebelumnya string    `db:"status_sebelumnya" json:"status_sebelumnya"`
+	StatusBaru       string    `db:"status_baru" json:"status_baru"`
+	CatatanTindakan  string    `db:"catatan_tindakan" json:"catatan_tindakan"`
+	OlehUserID       uint64    `db:"oleh_user_id" json:"oleh_user_id"`
+	OlehUserNama     string    `db:"oleh_user_nama" json:"oleh_user_nama"`
+	CreatedAt        time.Time `db:"created_at" json:"created_at"`
+}
+
