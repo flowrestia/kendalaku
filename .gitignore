@@ -1,0 +1,15 @@
+@"
+# Rahasia
+.env
+backend/.env
+mobile/.env
+
+# Build dan dependensi
+backend/tmp/
+*.exe
+*.log
+.dart_tool/
+build/
+.idea/
+.vscode/
+"@ | Set-Content -Path .gitignore -Encoding utf8
