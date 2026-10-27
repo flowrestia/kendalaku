@@ -309,6 +309,15 @@ func (r *Repository) ListIssues(filter domain.IssueFilter) ([]domain.OrderIssue,
 		conditions = append(conditions, "oi.status NOT IN ('selesai', 'ditolak') AND oi.tenggat_at < UTC_TIMESTAMP()")
 	}
 
+	if len(filter.IDs) > 0 {
+		placeholders := make([]string, len(filter.IDs))
+		for i, id := range filter.IDs {
+			placeholders[i] = "?"
+			args = append(args, id)
+		}
+		conditions = append(conditions, fmt.Sprintf("oi.id IN (%s)", strings.Join(placeholders, ",")))
+	}
+
 	whereClause := ""
 	if len(conditions) > 0 {
 		whereClause = " WHERE " + strings.Join(conditions, " AND ")
@@ -559,7 +568,7 @@ func (r *Repository) GetActivityLogs(limit int) ([]domain.ActivityLogItem, error
 		FROM issue_transactions it
 		JOIN order_issues oi ON it.issue_id = oi.id
 		JOIN users u ON it.oleh_user_id = u.id
-		ORDER BY it.id DESC
+		ORDER BY it.created_at DESC, it.id DESC
 		LIMIT ?`
 
 	var list []domain.ActivityLogItem

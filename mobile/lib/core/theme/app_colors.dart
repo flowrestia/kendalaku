@@ -61,8 +61,11 @@ class AppColors {
   }
 
   // Helper warna status
-  static Color getStatusColor(String status) {
-    switch (status.toLowerCase()) {
+  static Color getStatusColor(String? status) {
+    if (status == null || status.trim().isEmpty) {
+      return textMuted;
+    }
+    switch (status.trim().toLowerCase()) {
       case 'baru':
         return statusNew;
       case 'sedang_diproses':
@@ -78,8 +81,11 @@ class AppColors {
     }
   }
 
-  static Color getStatusBgColor(String status) {
-    switch (status.toLowerCase()) {
+  static Color getStatusBgColor(String? status) {
+    if (status == null || status.trim().isEmpty) {
+      return cardBorder.withValues(alpha: 0.5);
+    }
+    switch (status.trim().toLowerCase()) {
       case 'baru':
         return statusNewBg;
       case 'sedang_diproses':

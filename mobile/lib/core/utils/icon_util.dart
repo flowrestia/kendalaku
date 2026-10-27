@@ -38,8 +38,11 @@ class IconUtil {
   }
 
   // Icon spesifik untuk status kendala
-  static IconData getStatusIcon(String status) {
-    switch (status.toLowerCase()) {
+  static IconData getStatusIcon(String? status) {
+    if (status == null || status.trim().isEmpty) {
+      return Icons.radio_button_unchecked_rounded;
+    }
+    switch (status.trim().toLowerCase()) {
       case 'baru':
         return Icons.fiber_new_rounded;
       case 'sedang_diproses':
@@ -56,8 +59,11 @@ class IconUtil {
   }
 
   // Label rapi bahasa Indonesia untuk status
-  static String getStatusLabel(String status) {
-    switch (status.toLowerCase()) {
+  static String getStatusLabel(String? status) {
+    if (status == null || status.trim().isEmpty) {
+      return 'Laporan Dibuat';
+    }
+    switch (status.trim().toLowerCase()) {
       case 'baru':
         return 'Baru';
       case 'sedang_diproses':

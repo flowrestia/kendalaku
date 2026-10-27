@@ -91,6 +91,9 @@ func main() {
 			protected.PATCH("/issues/:id/archive", h.ArchiveIssue)
 			protected.DELETE("/issues/:id", middleware.RequireRole(domain.RoleAdmin), h.DeleteIssue)
 
+			// Share WhatsApp (Fase 6B)
+			protected.GET("/share/issues", h.ShareText)
+
 			// Status Transitions & Riwayat
 			protected.POST("/issues/:id/transitions", h.TransitionStatus)
 			protected.GET("/issues/:id/transitions", h.GetIssueTransitions)

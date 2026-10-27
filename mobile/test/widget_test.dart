@@ -5,11 +5,14 @@ import 'package:mobile/core/utils/date_util.dart';
 import 'package:mobile/core/utils/icon_util.dart';
 import 'package:mobile/data/models/models.dart';
 import 'package:mobile/providers/app_providers.dart';
+import 'package:mobile/core/utils/whatsapp_util.dart';
 import 'package:mobile/views/categories/manage_categories_screen.dart';
 import 'package:mobile/views/dashboard/dashboard_screen.dart';
 import 'package:mobile/views/issues/issue_wizard_screen.dart';
 import 'package:mobile/views/issues/issues_list_screen.dart';
+import 'package:mobile/views/settings/settings_screen.dart';
 import 'package:mobile/views/widgets/status_transition_modal.dart';
+import 'package:mobile/views/widgets/whatsapp_preview_sheet.dart';
 
 class _MockAuthNotifier extends AuthNotifier {
   final User? initialUser;
@@ -514,6 +517,354 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Tambah Kategori Baru'), findsNothing);
+    });
+  });
+
+  group('WhatsApp Feature Tests (Fase 6B)', () {
+    test('WhatsAppUtil: Normalisasi nomor telepon ke format internasional', () {
+      expect(WhatsAppUtil.normalizePhoneNumber('0812-3456-7890'), equals('6281234567890'));
+      expect(WhatsAppUtil.normalizePhoneNumber('0812 3456 789'), equals('628123456789'));
+      expect(WhatsAppUtil.normalizePhoneNumber('+62 812-3456-7890'), equals('6281234567890'));
+      expect(WhatsAppUtil.normalizePhoneNumber('628123456789'), equals('628123456789'));
+      expect(WhatsAppUtil.normalizePhoneNumber(''), equals(''));
+    });
+
+    test('WhatsAppUtil: Pembentukan URL wa.me dengan teks ter-encode', () {
+      const text = 'Halo *Admin* & Petugas!';
+      final urlTanpaNomor = WhatsAppUtil.buildWhatsAppUrl(text: text);
+      expect(urlTanpaNomor, startsWith('https://wa.me/?text='));
+      expect(urlTanpaNomor, contains(Uri.encodeComponent(text)));
+
+      final urlDenganNomor = WhatsAppUtil.buildWhatsAppUrl(phone: '08123456789', text: text);
+      expect(urlDenganNomor, startsWith('https://wa.me/628123456789?text='));
+      expect(urlDenganNomor, contains(Uri.encodeComponent(text)));
+    });
+
+    test('WhatsAppUtil: Deteksi peringatan teks terlalu panjang (> 1800 karakter)', () {
+      final shortText = 'Teks pendek aman';
+      expect(WhatsAppUtil.isTextTooLongForUrl(shortText), isFalse);
+
+      final longText = 'A' * 2000;
+      expect(WhatsAppUtil.isTextTooLongForUrl(longText), isTrue);
+    });
+
+    testWidgets('WhatsAppPreviewSheet: Pratinjau teks single issue, switch nama pelanggan, dan tombol salin/buka', (tester) async {
+      tester.view.physicalSize = const Size(800, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final dummyIssue = OrderIssue(
+        id: 1,
+        kodeKendala: 'KND-999',
+        orderId: 101,
+        categoryId: 1,
+        judul: 'Barang Rusak Pengiriman',
+        deskripsi: 'Kotak robek dan remuk',
+        prioritas: 'kritis',
+        status: 'baru',
+        tenggatAt: '2026-10-27T18:00:00Z',
+        assignedTo: 1,
+        assignedNama: 'Sonny Petugas',
+        createdByNama: 'Admin',
+        isArchived: false,
+        createdBy: 2,
+        createdAt: '2026-10-27T10:00:00Z',
+        updatedAt: '2026-10-27T10:00:00Z',
+        categoryNama: 'Kerusakan Barang',
+        categoryWarnaHex: '#EF4444',
+        categoryIkon: 'broken_image',
+        kodePesanan: 'ORD-888',
+        namaPelanggan: 'Dewi Lestari',
+        isOverdue: false,
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: WhatsAppPreviewSheet(
+                singleIssue: dummyIssue,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // 1. Verifikasi Header Modal
+      expect(find.text('Kirim ke WhatsApp'), findsOneWidget);
+      expect(find.text('Ringkasan 1 Kendala'), findsOneWidget);
+
+      // 2. Verifikasi Konten Teks Awal Memuat Nama Pelanggan (default Switch ON)
+      expect(find.text('Sertakan Nama Pelanggan'), findsOneWidget);
+      final textFieldFinder = find.byType(TextField).last;
+      expect(textFieldFinder, findsOneWidget);
+      final initialText = tester.widget<TextField>(textFieldFinder).controller!.text;
+      expect(initialText, contains('ORD-888 (Dewi Lestari)'));
+      expect(initialText, contains('*[KND-999]*'));
+      expect(initialText, contains('*[KRITIS]*'));
+
+      // 3. Verifikasi Switch Nama Pelanggan dimatikan -> Nama pelanggan disembunyikan
+      final switchFinder = find.byType(Switch);
+      expect(switchFinder, findsOneWidget);
+      await tester.tap(switchFinder);
+      await tester.pumpAndSettle();
+
+      final updatedText = tester.widget<TextField>(textFieldFinder).controller!.text;
+      expect(updatedText, contains('Pesanan: ORD-888'));
+      expect(updatedText, isNot(contains('Dewi Lestari')));
+
+      // 4. Verifikasi Tombol Aksi Bawah
+      expect(find.text('Salin Teks'), findsOneWidget);
+      expect(find.text('Buka WhatsApp'), findsOneWidget);
+
+      // 5. Verifikasi Input Nomor WhatsApp
+      final phoneField = find.widgetWithText(TextField, 'Nomor WhatsApp Tujuan (Opsional)');
+      expect(phoneField, findsOneWidget);
+      await tester.enterText(phoneField, '08123456789');
+      await tester.pumpAndSettle();
+      expect(find.text('08123456789'), findsOneWidget);
+    });
+
+    testWidgets('IssuesListScreen: Mode pilih checkbox dan aksi Kirim ke WhatsApp', (tester) async {
+      tester.view.physicalSize = const Size(800, 1200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final dummyIssues = [
+        OrderIssue(
+          id: 10,
+          kodeKendala: 'KND-010',
+          orderId: 1,
+          categoryId: 1,
+          judul: 'Keterlambatan Kurir',
+          deskripsi: 'Kurir mogok',
+          prioritas: 'sedang',
+          status: 'baru',
+          tenggatAt: '2026-10-27T10:00:00Z',
+          assignedTo: 1,
+          assignedNama: 'Petugas',
+          createdByNama: 'Admin',
+          isArchived: false,
+          createdBy: 1,
+          createdAt: '2026-10-26T10:00:00Z',
+          updatedAt: '2026-10-26T10:00:00Z',
+          categoryNama: 'Pengiriman',
+          categoryWarnaHex: '#3B82F6',
+          categoryIkon: 'local_shipping',
+          kodePesanan: 'ORD-010',
+          namaPelanggan: 'Budi Santoso',
+          isOverdue: false,
+        ),
+      ];
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            issuesListProvider.overrideWith((ref) => {
+              'items': dummyIssues,
+              'total': 1,
+            }),
+          ],
+          child: const MaterialApp(
+            home: IssuesListScreen(),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // Tombol WhatsApp di AppBar harus ada
+      final waButton = find.byTooltip('Kirim ke WhatsApp');
+      expect(waButton, findsOneWidget);
+
+      // Long press pada kartu untuk mengaktifkan mode pilih
+      await tester.longPress(find.text('Keterlambatan Kurir'));
+      await tester.pumpAndSettle();
+
+      // Mode pilih harus aktif: ada tombol 'Batal Pilih Semua' / 'Pilih Semua'
+      expect(find.text('Pilih Semua'), findsNothing);
+      expect(find.text('Batal Pilih Semua'), findsOneWidget);
+      expect(find.text('(1 dipilih)'), findsOneWidget);
+
+      // Checkbox harus tampil dan tercentang
+      final checkbox = find.byType(Checkbox);
+      expect(checkbox, findsOneWidget);
+      expect(tester.widget<Checkbox>(checkbox).value, isTrue);
+
+      // Tekan tombol Batal untuk keluar dari mode pilih
+      await tester.tap(find.text('Batal'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Batal Pilih Semua'), findsNothing);
+    });
+
+    testWidgets('Settings: Sheet Daftar Petugas dengan JSON asli (termasuk user tanpa email) dan Sheet Riwayat Aktivitas (status_sebelumnya kosong)', (tester) async {
+      // 1. JSON Asli Users (user id 2 tanpa email)
+      final rawUsersJson = [
+        {
+          "id": 3,
+          "nama": "Budi Penanganan",
+          "email": "petugas2@kendalaku.com",
+          "role": "petugas",
+          "created_at": "2026-10-26T08:16:21Z"
+        },
+        {
+          "id": 2,
+          "nama": "Rina Petugas",
+          // email tidak ada / hilang
+          "role": "petugas",
+          "created_at": "2026-10-26T08:16:21Z"
+        },
+        {
+          "id": 1,
+          "nama": "Sonny (Admin Operasional)",
+          "email": "admin@kendalaku.com",
+          "role": "admin",
+          "created_at": "2026-10-26T08:16:21Z"
+        }
+      ];
+
+      final usersList = rawUsersJson.map((e) => User.fromJson(e)).toList();
+
+      // 2. JSON Asli Activities (entri baru memiliki status_sebelumnya "")
+      final rawActivitiesJson = [
+        {
+          "id": 63,
+          "issue_id": 36,
+          "kode_kendala": "KDL-202610-0036",
+          "judul_kendala": "Resi pengiriman tidak dapat dilacak di kurir",
+          "status_sebelumnya": "baru",
+          "status_baru": "ditolak",
+          "catatan_tindakan": "Pembaruan status operasional penanganan kendala",
+          "oleh_user_id": 3,
+          "oleh_user_nama": "Budi Penanganan",
+          "created_at": "2026-09-25T13:16:21Z"
+        },
+        {
+          "id": 62,
+          "issue_id": 36,
+          "kode_kendala": "KDL-202610-0036",
+          "judul_kendala": "Resi pengiriman tidak dapat dilacak di kurir",
+          "status_sebelumnya": "", // Kosong untuk laporan dibuat
+          "status_baru": "baru",
+          "catatan_tindakan": "Kendala dilaporkan ke sistem KendalaKu",
+          "oleh_user_id": 1,
+          "oleh_user_nama": "Sonny (Admin Operasional)",
+          "created_at": "2026-09-25T11:16:21Z"
+        }
+      ];
+
+      final activitiesList = rawActivitiesJson.map((e) => ActivityLogItem.fromJson(e)).toList();
+
+      final adminUser = User(
+        id: 1,
+        nama: 'Sonny (Admin Operasional)',
+        email: 'admin@kendalaku.com',
+        role: 'admin',
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authProvider.overrideWith(() => _MockAuthNotifier(adminUser)),
+            usersListProvider.overrideWith((ref) => usersList),
+            activitiesListProvider.overrideWith((ref) => activitiesList),
+          ],
+          child: const MaterialApp(
+            home: SettingsScreen(),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // Buka bottom sheet Daftar Petugas
+      await tester.tap(find.text('Daftar Petugas Lapangan'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Daftar Petugas Lapangan & Admin'), findsOneWidget);
+      expect(find.text('Budi Penanganan'), findsOneWidget);
+      expect(find.text('Rina Petugas'), findsOneWidget);
+      // Rina Petugas tidak memiliki email, harus tampil 'Tidak ada email' tanpa crash/exception
+      expect(find.text('Tidak ada email • Role: PETUGAS'), findsOneWidget);
+
+      // Tutup sheet
+      final navigatorState = Navigator.of(tester.element(find.text('Daftar Petugas Lapangan & Admin')), rootNavigator: true);
+      navigatorState.pop();
+      await tester.pumpAndSettle();
+
+      // Buka bottom sheet Riwayat Aktivitas
+      await tester.tap(find.text('Riwayat Aktivitas Tim'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Riwayat Aktivitas & Audit Trail Tim'), findsOneWidget);
+      expect(find.text('KDL-202610-0036'), findsNWidgets(2));
+      // Status sebelumnya kosong harus dipetakan ke 'Laporan Dibuat'
+      expect(find.text('Laporan Dibuat'), findsOneWidget);
+      expect(find.text('Baru'), findsNWidgets(2)); // status_sebelumnya "baru" pada entri 63 dan status_baru "baru" pada entri 62
+      expect(find.text('Ditolak'), findsOneWidget);
+
+      // Tutup sheet
+      final navigatorState2 = Navigator.of(tester.element(find.text('Riwayat Aktivitas & Audit Trail Tim')), rootNavigator: true);
+      navigatorState2.pop();
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('Settings: Sheet menampilkan pesan error dan tombol Coba Lagi saat fetch gagal', (tester) async {
+      final adminUser = User(
+        id: 1,
+        nama: 'Sonny (Admin Operasional)',
+        email: 'admin@kendalaku.com',
+        role: 'admin',
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authProvider.overrideWith(() => _MockAuthNotifier(adminUser)),
+            usersListProvider.overrideWith((ref) => Future<List<User>>.error(Exception('Koneksi timeout'))),
+            activitiesListProvider.overrideWith((ref) => Future<List<ActivityLogItem>>.error(Exception('Server error 500'))),
+          ],
+          child: const MaterialApp(
+            home: SettingsScreen(),
+          ),
+        ),
+      );
+
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // Buka bottom sheet Petugas saat error
+      await tester.tap(find.text('Daftar Petugas Lapangan'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Gagal memuat petugas'), findsOneWidget);
+      expect(find.widgetWithText(OutlinedButton, 'Coba Lagi'), findsOneWidget);
+
+      // Tutup sheet
+      final nav1 = Navigator.of(tester.element(find.text('Daftar Petugas Lapangan & Admin')), rootNavigator: true);
+      nav1.pop();
+      await tester.pumpAndSettle();
+
+      // Buka bottom sheet Aktivitas saat error
+      await tester.tap(find.text('Riwayat Aktivitas Tim'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Gagal memuat riwayat aktivitas'), findsOneWidget);
+      expect(find.widgetWithText(OutlinedButton, 'Coba Lagi'), findsOneWidget);
+
+      // Tutup sheet
+      final nav2 = Navigator.of(tester.element(find.text('Riwayat Aktivitas & Audit Trail Tim')), rootNavigator: true);
+      nav2.pop();
+      await tester.pumpAndSettle();
     });
   });
 }

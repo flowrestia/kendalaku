@@ -249,4 +249,38 @@ class KendalaRepository {
     final list = response.data['data'] as List;
     return list.map((e) => ActivityLogItem.fromJson(e as Map<String, dynamic>)).toList();
   }
+
+  // Share Text WhatsApp (Fase 6B)
+  Future<ShareTextResult> getShareText({
+    String? search,
+    String? status,
+    String? prioritas,
+    int? categoryId,
+    dynamic assignedTo, // int atau "me"
+    String? from,
+    String? to,
+    bool? isOverdue,
+    List<int>? ids,
+    bool includeCustomer = true,
+  }) async {
+    final q = <String, dynamic>{
+      'include_customer': includeCustomer.toString(),
+    };
+    if (search != null && search.isNotEmpty) q['search'] = search;
+    if (status != null && status.isNotEmpty) q['status'] = status;
+    if (prioritas != null && prioritas.isNotEmpty) q['prioritas'] = prioritas;
+    if (categoryId != null && categoryId > 0) q['category_id'] = categoryId;
+    if (assignedTo != null) q['assigned_to'] = assignedTo.toString();
+    if (from != null && from.isNotEmpty) q['from'] = from;
+    if (to != null && to.isNotEmpty) q['to'] = to;
+    if (isOverdue != null) q['is_overdue'] = isOverdue.toString();
+    if (ids != null && ids.isNotEmpty) q['ids'] = ids.join(',');
+
+    final response = await apiClient.dio.get(
+      '/share/issues',
+      queryParameters: q,
+    );
+    final data = response.data['data'] as Map<String, dynamic>;
+    return ShareTextResult.fromJson(data);
+  }
 }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/date_util.dart';
+import '../../core/utils/icon_util.dart';
 import '../../providers/app_providers.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -14,8 +15,10 @@ class SettingsScreen extends ConsumerWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        final usersAsync = ref.watch(usersListProvider);
-        return Container(
+        return Consumer(
+          builder: (context, ref, child) {
+            final usersAsync = ref.watch(usersListProvider);
+            return Container(
           padding: const EdgeInsets.all(20),
           decoration: const BoxDecoration(
             color: Colors.white,
@@ -43,12 +46,21 @@ class SettingsScreen extends ConsumerWidget {
               const SizedBox(height: 12),
               usersAsync.when(
                 data: (users) {
+                  if (users.isEmpty) {
+                    return const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(32),
+                        child: Text('Belum ada data petugas'),
+                      ),
+                    );
+                  }
                   return SizedBox(
                     height: 320,
                     child: ListView.builder(
                       itemCount: users.length,
                       itemBuilder: (context, index) {
                         final u = users[index];
+                        final emailDisplay = (u.email != null && u.email!.isNotEmpty) ? u.email! : 'Tidak ada email';
                         return Container(
                           margin: const EdgeInsets.only(bottom: 8),
                           decoration: BoxDecoration(
@@ -56,28 +68,32 @@ class SettingsScreen extends ConsumerWidget {
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: AppColors.cardBorder),
                           ),
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: u.isAdmin ? AppColors.primary : AppColors.accentTeal,
-                              child: Text(
-                                u.nama.isNotEmpty ? u.nama[0].toUpperCase() : '?',
-                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                          child: Material(
+                            color: Colors.transparent,
+                            borderRadius: BorderRadius.circular(12),
+                            child: ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: u.isAdmin ? AppColors.primary : AppColors.accentTeal,
+                                child: Text(
+                                  u.nama.isNotEmpty ? u.nama[0].toUpperCase() : '?',
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                ),
                               ),
-                            ),
-                            title: Text(u.nama, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                            subtitle: Text('${u.email} • Role: ${u.role.toUpperCase()}'),
-                            trailing: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: (u.isAdmin ? AppColors.primary : AppColors.accentTeal).withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                u.role.toUpperCase(),
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: u.isAdmin ? AppColors.primary : AppColors.accentTeal,
+                              title: Text(u.nama, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                              subtitle: Text('$emailDisplay • Role: ${u.role.toUpperCase()}'),
+                              trailing: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: (u.isAdmin ? AppColors.primary : AppColors.accentTeal).withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  u.role.toUpperCase(),
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: u.isAdmin ? AppColors.primary : AppColors.accentTeal,
+                                  ),
                                 ),
                               ),
                             ),
@@ -87,11 +103,40 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                   );
                 },
-                loading: () => const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator())),
-                error: (err, _) => Text('Gagal: $err'),
+                loading: () => const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(32),
+                    child: CircularProgressIndicator(),
+                  ),
+                ),
+                error: (err, _) => Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.error_outline_rounded, color: AppColors.statusRejected, size: 36),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Gagal memuat petugas: $err',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                        ),
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: () => ref.invalidate(usersListProvider),
+                          icon: const Icon(Icons.refresh_rounded, size: 16),
+                          label: const Text('Coba Lagi'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
+        );
+          },
         );
       },
     );
@@ -103,8 +148,10 @@ class SettingsScreen extends ConsumerWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        final activitiesAsync = ref.watch(activitiesListProvider);
-        return Container(
+        return Consumer(
+          builder: (context, ref, child) {
+            final activitiesAsync = ref.watch(activitiesListProvider);
+            return Container(
           padding: const EdgeInsets.all(20),
           decoration: const BoxDecoration(
             color: Colors.white,
@@ -147,6 +194,11 @@ class SettingsScreen extends ConsumerWidget {
                       itemCount: activities.length,
                       itemBuilder: (context, index) {
                         final act = activities[index];
+                        final statusSebelumnyaDisplay = act.statusSebelumnya.trim().isEmpty
+                            ? 'Laporan Dibuat'
+                            : IconUtil.getStatusLabel(act.statusSebelumnya);
+                        final statusBaruDisplay = IconUtil.getStatusLabel(act.statusBaru);
+
                         return Container(
                           margin: const EdgeInsets.only(bottom: 8),
                           padding: const EdgeInsets.all(12),
@@ -179,16 +231,53 @@ class SettingsScreen extends ConsumerWidget {
                                 overflow: TextOverflow.ellipsis,
                               ),
                               const SizedBox(height: 6),
-                              Row(
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 4,
+                                crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
-                                  Text(
-                                    '${act.statusSebelumnya} → ${act.statusBaru}',
-                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.getStatusBgColor(act.statusSebelumnya),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          statusSebelumnyaDisplay,
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppColors.getStatusColor(act.statusSebelumnya),
+                                          ),
+                                        ),
+                                      ),
+                                      const Padding(
+                                        padding: EdgeInsets.symmetric(horizontal: 4),
+                                        child: Icon(Icons.arrow_forward_rounded, size: 12, color: AppColors.textMuted),
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.getStatusBgColor(act.statusBaru),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          statusBaruDisplay,
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.getStatusColor(act.statusBaru),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  const Spacer(),
                                   Text(
-                                    'Oleh: ${act.olehUserNama}',
-                                    style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                    '• Oleh: ${act.olehUserNama}',
+                                    style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
                                   ),
                                 ],
                               ),
@@ -206,11 +295,40 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                   );
                 },
-                loading: () => const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator())),
-                error: (err, _) => Text('Gagal: $err'),
+                loading: () => const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(32),
+                    child: CircularProgressIndicator(),
+                  ),
+                ),
+                error: (err, _) => Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.error_outline_rounded, color: AppColors.statusRejected, size: 36),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Gagal memuat riwayat aktivitas: $err',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                        ),
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: () => ref.invalidate(activitiesListProvider),
+                          icon: const Icon(Icons.refresh_rounded, size: 16),
+                          label: const Text('Coba Lagi'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
+        );
+          },
         );
       },
     );
@@ -291,14 +409,16 @@ class SettingsScreen extends ConsumerWidget {
             const SizedBox(height: 20),
 
             // Kelola Menu
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppColors.cardBorder),
-              ),
-              child: Column(
-                children: [
+            Material(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppColors.cardBorder),
+                ),
+                child: Column(
+                  children: [
                   if (user?.isAdmin ?? false) ...[
                     ListTile(
                       leading: const Icon(Icons.category_rounded, color: AppColors.primary),
@@ -327,6 +447,7 @@ class SettingsScreen extends ConsumerWidget {
                 ],
               ),
             ),
+          ),
 
             const SizedBox(height: 24),
 

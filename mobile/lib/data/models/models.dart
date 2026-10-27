@@ -1,14 +1,14 @@
 class User {
   final int id;
   final String nama;
-  final String email;
+  final String? email;
   final String role;
   final String? createdAt;
 
   User({
     required this.id,
     required this.nama,
-    required this.email,
+    this.email,
     required this.role,
     this.createdAt,
   });
@@ -17,7 +17,7 @@ class User {
     return User(
       id: json['id'] as int? ?? 0,
       nama: json['nama'] as String? ?? '',
-      email: json['email'] as String? ?? '',
+      email: json['email'] as String?,
       role: json['role'] as String? ?? 'petugas',
       createdAt: json['created_at'] as String?,
     );
@@ -417,6 +417,27 @@ class ActivityLogItem {
       olehUserId: json['oleh_user_id'] as int? ?? 0,
       olehUserNama: json['oleh_user_nama'] as String? ?? '',
       createdAt: json['created_at'] as String? ?? '',
+    );
+  }
+}
+
+// Model Response Share Text WhatsApp (Fase 6B)
+class ShareTextResult {
+  final String text;
+  final int count;
+  final bool truncated;
+
+  ShareTextResult({
+    required this.text,
+    required this.count,
+    required this.truncated,
+  });
+
+  factory ShareTextResult.fromJson(Map<String, dynamic> json) {
+    return ShareTextResult(
+      text: json['text'] as String? ?? '',
+      count: json['count'] as int? ?? 0,
+      truncated: json['truncated'] as bool? ?? false,
     );
   }
 }

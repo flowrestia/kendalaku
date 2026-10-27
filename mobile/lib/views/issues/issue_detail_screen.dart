@@ -7,6 +7,7 @@ import '../../data/models/models.dart';
 import '../../providers/app_providers.dart';
 import '../widgets/badges.dart';
 import '../widgets/status_transition_modal.dart';
+import '../widgets/whatsapp_preview_sheet.dart';
 
 class IssueDetailScreen extends ConsumerStatefulWidget {
   final int issueId;
@@ -60,13 +61,25 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
         title: const Text('Detail Kendala'),
         actions: [
           issueAsync.when(
-            data: (issue) => (issue.status != 'selesai' && issue.status != 'ditolak')
-                ? TextButton.icon(
+            data: (issue) => Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.share_rounded, color: Color(0xFF1EBE5D)),
+                  tooltip: 'Bagikan ke WhatsApp',
+                  onPressed: () => WhatsAppPreviewSheet.show(
+                    context,
+                    singleIssue: issue,
+                  ),
+                ),
+                if (issue.status != 'selesai' && issue.status != 'ditolak')
+                  TextButton.icon(
                     icon: const Icon(Icons.swap_horiz_rounded, size: 20, color: AppColors.primary),
                     label: const Text('Ubah Status', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary)),
                     onPressed: () => _openTransitionModal(issue),
-                  )
-                : const SizedBox(),
+                  ),
+              ],
+            ),
             loading: () => const SizedBox(),
             error: (_, _) => const SizedBox(),
           ),

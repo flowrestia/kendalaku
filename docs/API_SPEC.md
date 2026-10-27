@@ -119,6 +119,30 @@ Jika terjadi kegagalan/error:
 ### `DELETE /api/v1/issues/:id`
 - Hanya diizinkan jika status kendala masih `"baru"` dan dilakukan oleh admin. Status lain hanya bisa diarsipkan.
 
+### `GET /api/v1/share/issues`
+- Menghasilkan ringkasan daftar kendala siap kirim ke WhatsApp (format teks *tebal* Markdown WA).
+- **Query Parameters**:
+  - Semua filter query pada `GET /issues` (`search`, `status`, `prioritas`, `category_id`, `assigned_to`, `from`, `to`, `is_overdue`). Khusus `assigned_to` mendukung nilai `"me"`.
+  - `ids` (string, opsional): Daftar ID yang dipilih dipisah koma (contoh: `ids=1,2,5`).
+  - `include_customer` (boolean, opsional, default `true`): Menyertakan nama pelanggan di samping kode pesanan. Jika `false`, hanya nomor pesanan yang tampil.
+- **Urutan Pengurutan (Sorting Bisnis)**:
+  1. Terlambat terlebih dahulu (`is_overdue = true`).
+  2. Prioritas tingkat keparahan (`kritis` > `tinggi` > `sedang` > `rendah`).
+  3. Tenggat waktu SLA terdekat (`tenggat_at` ASC).
+- **Pembatasan (Truncation)**: Maksimal 20 kendala per pesan. Jika total hasil > 20, ditambahkan baris `_+N kendala lainnya, lihat di aplikasi_` dan flag `truncated: true`.
+- **Response Data (`ShareTextResponse`)**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "text": "*DAFTAR KENDALA LAYANAN - KENDALAKU*\nWaktu Cetak: 27/10/2026 18:30 WIB\n...",
+      "count": 25,
+      "truncated": true
+    },
+    "error": null
+  }
+  ```
+
 ### `PATCH /api/v1/issues/:id/archive`
 - Mengubah flag `is_archived: true` atau `false`.
 

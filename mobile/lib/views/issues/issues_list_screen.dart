@@ -7,6 +7,7 @@ import '../../providers/app_providers.dart';
 import '../widgets/filter_bottom_sheet.dart';
 import '../widgets/issue_card.dart';
 import '../widgets/status_transition_modal.dart';
+import '../widgets/whatsapp_preview_sheet.dart';
 
 class IssuesListScreen extends ConsumerStatefulWidget {
   const IssuesListScreen({super.key});
@@ -17,11 +18,39 @@ class IssuesListScreen extends ConsumerStatefulWidget {
 
 class _IssuesListScreenState extends ConsumerState<IssuesListScreen> {
   final _searchController = TextEditingController();
+  bool _isSelectionMode = false;
+  final Set<int> _selectedIds = {};
 
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _openWhatsAppShare() {
+    final activeFilter = ref.read(issueFilterProvider);
+    WhatsAppPreviewSheet.show(
+      context,
+      selectedIds: _isSelectionMode && _selectedIds.isNotEmpty ? _selectedIds.toList() : null,
+      activeFilter: activeFilter,
+    );
+  }
+
+  void _toggleSelectAll(List<OrderIssue> items) {
+    setState(() {
+      if (_selectedIds.length == items.length) {
+        _selectedIds.clear();
+      } else {
+        _selectedIds.addAll(items.map((e) => e.id));
+      }
+    });
+  }
+
+  void _exitSelectionMode() {
+    setState(() {
+      _isSelectionMode = false;
+      _selectedIds.clear();
+    });
   }
 
   void _openFilter() {
@@ -224,6 +253,16 @@ class _IssuesListScreenState extends ConsumerState<IssuesListScreen> {
                               ),
                               Row(
                                 children: [
+                                  IconButton(
+                                    style: IconButton.styleFrom(
+                                      backgroundColor: const Color(0xFF25D366).withValues(alpha: 0.15),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    ),
+                                    icon: const Icon(Icons.share_rounded, size: 20, color: Color(0xFF1EBE5D)),
+                                    tooltip: 'Kirim ke WhatsApp',
+                                    onPressed: _openWhatsAppShare,
+                                  ),
+                                  const SizedBox(width: 6),
                                   IconButton(
                                     style: IconButton.styleFrom(
                                       backgroundColor: hasActiveFilters
@@ -448,22 +487,54 @@ class _IssuesListScreenState extends ConsumerState<IssuesListScreen> {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
-                                  'Menampilkan $total Kendala',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.textMuted,
+                                if (_isSelectionMode)
+                                  Row(
+                                    children: [
+                                      TextButton.icon(
+                                        onPressed: () => _toggleSelectAll(items),
+                                        icon: Icon(
+                                          _selectedIds.length == items.length && items.isNotEmpty
+                                              ? Icons.check_box_rounded
+                                              : Icons.check_box_outline_blank_rounded,
+                                          size: 18,
+                                          color: AppColors.primary,
+                                        ),
+                                        label: Text(
+                                          _selectedIds.length == items.length && items.isNotEmpty
+                                              ? 'Batal Pilih Semua'
+                                              : 'Pilih Semua',
+                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                      Text(
+                                        '(${_selectedIds.length} dipilih)',
+                                        style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                      ),
+                                    ],
+                                  )
+                                else
+                                  Text(
+                                    'Menampilkan $total Kendala',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textMuted,
+                                    ),
                                   ),
-                                ),
-                                const Text(
-                                  'Geser / tekan lama untuk aksi cepat',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: AppColors.textMuted,
-                                    fontStyle: FontStyle.italic,
+                                if (_isSelectionMode)
+                                  TextButton(
+                                    onPressed: _exitSelectionMode,
+                                    child: const Text('Batal', style: TextStyle(fontSize: 12, color: AppColors.statusRejected)),
+                                  )
+                                else
+                                  const Text(
+                                    'Tekan lama untuk mode pilih',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: AppColors.textMuted,
+                                      fontStyle: FontStyle.italic,
+                                    ),
                                   ),
-                                ),
                               ],
                             ),
                           ),
@@ -474,6 +545,7 @@ class _IssuesListScreenState extends ConsumerState<IssuesListScreen> {
                               itemBuilder: (context, index) {
                                 final issue = items[index];
                                 final delayMs = (index * 40).clamp(0, 400);
+                                final isSelected = _selectedIds.contains(issue.id);
 
                                 return TweenAnimationBuilder<double>(
                                   duration: Duration(milliseconds: 300 + delayMs),
@@ -490,11 +562,39 @@ class _IssuesListScreenState extends ConsumerState<IssuesListScreen> {
                                   },
                                   child: IssueCard(
                                     issue: issue,
+                                    isSelectionMode: _isSelectionMode,
+                                    isSelected: isSelected,
+                                    onToggleSelect: (val) {
+                                      setState(() {
+                                        if (val == true) {
+                                          _selectedIds.add(issue.id);
+                                        } else {
+                                          _selectedIds.remove(issue.id);
+                                        }
+                                      });
+                                    },
                                     onTap: () {
-                                      context.push('/issues/${issue.id}');
+                                      if (_isSelectionMode) {
+                                        setState(() {
+                                          if (isSelected) {
+                                            _selectedIds.remove(issue.id);
+                                          } else {
+                                            _selectedIds.add(issue.id);
+                                          }
+                                        });
+                                      } else {
+                                        context.push('/issues/${issue.id}');
+                                      }
                                     },
                                     onQuickAction: () {
-                                      _openTransitionModal(issue);
+                                      if (!_isSelectionMode) {
+                                        setState(() {
+                                          _isSelectionMode = true;
+                                          _selectedIds.add(issue.id);
+                                        });
+                                      } else {
+                                        _openTransitionModal(issue);
+                                      }
                                     },
                                   ),
                                 );

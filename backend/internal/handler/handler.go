@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/flowrestia/kendalaku/backend/internal/domain"
 	"github.com/flowrestia/kendalaku/backend/internal/middleware"
@@ -154,7 +155,16 @@ func (h *Handler) ListIssues(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 	categoryID, _ := strconv.ParseUint(c.Query("category_id"), 10, 64)
-	assignedTo, _ := strconv.ParseUint(c.Query("assigned_to"), 10, 64)
+	assignedToRaw := c.Query("assigned_to")
+	var assignedTo uint64
+	if assignedToRaw == "me" {
+		claims := h.getClaims(c)
+		if claims != nil {
+			assignedTo = claims.UserID
+		}
+	} else if assignedToRaw != "" {
+		assignedTo, _ = strconv.ParseUint(assignedToRaw, 10, 64)
+	}
 
 	var isArchived *bool
 	if c.Query("is_archived") != "" {
@@ -168,6 +178,15 @@ func (h *Handler) ListIssues(c *gin.Context) {
 		isOverdue = &val
 	}
 
+	var ids []uint64
+	if idsParam := c.Query("ids"); idsParam != "" {
+		for _, part := range strings.Split(idsParam, ",") {
+			if id, err := strconv.ParseUint(strings.TrimSpace(part), 10, 64); err == nil && id > 0 {
+				ids = append(ids, id)
+			}
+		}
+	}
+
 	filter := domain.IssueFilter{
 		Search:     c.Query("search"),
 		Status:     c.Query("status"),
@@ -178,6 +197,7 @@ func (h *Handler) ListIssues(c *gin.Context) {
 		To:         c.Query("to"),
 		IsArchived: isArchived,
 		IsOverdue:  isOverdue,
+		IDs:        ids,
 		Page:       page,
 		Limit:      limit,
 	}
@@ -185,6 +205,68 @@ func (h *Handler) ListIssues(c *gin.Context) {
 	result, err := h.svc.ListIssues(filter)
 	if err != nil {
 		response.InternalServerError(c, "Gagal mengambil daftar kendala: "+err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, result)
+}
+
+func (h *Handler) ShareText(c *gin.Context) {
+	categoryID, _ := strconv.ParseUint(c.Query("category_id"), 10, 64)
+
+	assignedToRaw := c.Query("assigned_to")
+	var assignedTo uint64
+	if assignedToRaw == "me" {
+		claims := h.getClaims(c)
+		if claims != nil {
+			assignedTo = claims.UserID
+		}
+	} else if assignedToRaw != "" {
+		assignedTo, _ = strconv.ParseUint(assignedToRaw, 10, 64)
+	}
+
+	var isArchived *bool
+	if c.Query("is_archived") != "" {
+		val := c.Query("is_archived") == "true"
+		isArchived = &val
+	}
+
+	var isOverdue *bool
+	if c.Query("is_overdue") != "" {
+		val := c.Query("is_overdue") == "true"
+		isOverdue = &val
+	}
+
+	var ids []uint64
+	if idsParam := c.Query("ids"); idsParam != "" {
+		for _, part := range strings.Split(idsParam, ",") {
+			if id, err := strconv.ParseUint(strings.TrimSpace(part), 10, 64); err == nil && id > 0 {
+				ids = append(ids, id)
+			}
+		}
+	}
+
+	includeCustomer := true
+	if c.Query("include_customer") == "false" {
+		includeCustomer = false
+	}
+
+	filter := domain.IssueFilter{
+		Search:     c.Query("search"),
+		Status:     c.Query("status"),
+		Prioritas:  c.Query("prioritas"),
+		CategoryID: categoryID,
+		AssignedTo: assignedTo,
+		From:       c.Query("from"),
+		To:         c.Query("to"),
+		IsArchived: isArchived,
+		IsOverdue:  isOverdue,
+		IDs:        ids,
+	}
+
+	result, err := h.svc.GenerateShareText(filter, includeCustomer)
+	if err != nil {
+		response.InternalServerError(c, "Gagal menghasilkan teks WhatsApp: "+err.Error())
 		return
 	}
 

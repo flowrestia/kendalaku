@@ -61,8 +61,16 @@ type IssueFilter struct {
 	To         string
 	IsArchived *bool
 	IsOverdue  *bool
+	IDs        []uint64
 	Page       int
 	Limit      int
+}
+
+// ShareTextResponse untuk GET /api/v1/share/issues
+type ShareTextResponse struct {
+	Text      string `json:"text"`
+	Count     int    `json:"count"`
+	Truncated bool   `json:"truncated"`
 }
 
 type PaginatedResult struct {

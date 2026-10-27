@@ -9,12 +9,18 @@ class IssueCard extends StatelessWidget {
   final OrderIssue issue;
   final VoidCallback onTap;
   final VoidCallback? onQuickAction;
+  final bool isSelectionMode;
+  final bool isSelected;
+  final ValueChanged<bool?>? onToggleSelect;
 
   const IssueCard({
     super.key,
     required this.issue,
     required this.onTap,
     this.onQuickAction,
+    this.isSelectionMode = false,
+    this.isSelected = false,
+    this.onToggleSelect,
   });
 
   @override
@@ -98,14 +104,31 @@ class IssueCard extends StatelessWidget {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                issue.kodeKendala,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 13,
-                                  color: AppColors.primary,
-                                  letterSpacing: 0.3,
-                                ),
+                              Row(
+                                children: [
+                                  if (isSelectionMode) ...[
+                                    SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: Checkbox(
+                                        value: isSelected,
+                                        activeColor: AppColors.primary,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                        onChanged: onToggleSelect,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                  ],
+                                  Text(
+                                    issue.kodeKendala,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 13,
+                                      color: AppColors.primary,
+                                      letterSpacing: 0.3,
+                                    ),
+                                  ),
+                                ],
                               ),
                               StatusBadge(status: issue.status),
                             ],

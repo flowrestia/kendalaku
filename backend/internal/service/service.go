@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/flowrestia/kendalaku/backend/internal/domain"
@@ -626,4 +628,152 @@ func (s *Service) ExportReportCSV(from, to string) (*bytes.Buffer, error) {
 func (s *Service) GetActivityLogs(limit int) ([]domain.ActivityLogItem, error) {
 	return s.repo.GetActivityLogs(limit)
 }
+
+// PriorityRank memetakan prioritas ke nilai integer (kritis paling tinggi)
+func PriorityRank(p string) int {
+	switch strings.ToLower(p) {
+	case "kritis":
+		return 4
+	case "tinggi":
+		return 3
+	case "sedang":
+		return 2
+	case "rendah":
+		return 1
+	default:
+		return 0
+	}
+}
+
+// GenerateShareText memformat daftar kendala ke format pesan WhatsApp
+func (s *Service) GenerateShareText(filter domain.IssueFilter, includeCustomer bool) (*domain.ShareTextResponse, error) {
+	// Ambil semua kendala yang cocok dengan filter (tanpa paginasi database kaku untuk pengurutan akurat)
+	filter.Page = 1
+	filter.Limit = 1000 // Ambil sampel cukup besar
+
+	items, total, err := s.repo.ListIssues(filter)
+	if err != nil {
+		return nil, err
+	}
+
+	return FormatIssuesShareText(items, total, filter, includeCustomer, time.Now().UTC()), nil
+}
+
+// FormatIssuesShareText mengurutkan dan memformat daftar kendala ke teks gaya WhatsApp
+func FormatIssuesShareText(items []domain.OrderIssue, total int, filter domain.IssueFilter, includeCustomer bool, nowUTC time.Time) *domain.ShareTextResponse {
+
+	// Urutkan:
+	// 1. Terlambat dulu (is_overdue = true di atas is_overdue = false)
+	// 2. Prioritas (kritis > tinggi > sedang > rendah)
+	// 3. Tenggat terdekat (tenggat_at ASC)
+	sort.Slice(items, func(i, j int) bool {
+		// 1. Terlambat
+		if items[i].IsOverdue != items[j].IsOverdue {
+			return items[i].IsOverdue // true duluan
+		}
+
+		// 2. Prioritas
+		rankI := PriorityRank(items[i].Prioritas)
+		rankJ := PriorityRank(items[j].Prioritas)
+		if rankI != rankJ {
+			return rankI > rankJ // lebih tinggi rank duluan
+		}
+
+		// 3. Tenggat terdekat
+		return items[i].TenggatAt.Before(items[j].TenggatAt)
+	})
+
+	const maxItems = 20
+	truncated := false
+	displayItems := items
+	if len(items) > maxItems {
+		truncated = true
+		displayItems = items[:maxItems]
+	}
+
+	// Lokasi WIB (UTC+7)
+	locWIB := time.FixedZone("WIB", 7*3600)
+	nowWIB := nowUTC.In(locWIB)
+
+	var sb strings.Builder
+	sb.WriteString("*DAFTAR KENDALA LAYANAN - KENDALAKU*\n")
+	sb.WriteString(fmt.Sprintf("Waktu Cetak: %s WIB\n", nowWIB.Format("02/01/2006 15:04")))
+
+	// Ringkasan filter
+	var filterSummaries []string
+	if filter.Status != "" {
+		filterSummaries = append(filterSummaries, fmt.Sprintf("Status: %s", filter.Status))
+	}
+	if filter.Prioritas != "" {
+		filterSummaries = append(filterSummaries, fmt.Sprintf("Prioritas: %s", filter.Prioritas))
+	}
+	if filter.IsOverdue != nil && *filter.IsOverdue {
+		filterSummaries = append(filterSummaries, "Filter: Terlambat Saja")
+	}
+	if filter.From != "" || filter.To != "" {
+		filterSummaries = append(filterSummaries, fmt.Sprintf("Periode: %s s/d %s", filter.From, filter.To))
+	}
+	if len(filter.IDs) > 0 {
+		filterSummaries = append(filterSummaries, fmt.Sprintf("%d item dipilih", len(filter.IDs)))
+	}
+
+	if len(filterSummaries) > 0 {
+		sb.WriteString(fmt.Sprintf("Filter: %s\n", strings.Join(filterSummaries, " | ")))
+	}
+	sb.WriteString(fmt.Sprintf("Total Kendala: %d\n\n", total))
+
+	if len(displayItems) == 0 {
+		sb.WriteString("Tidak ada kendala yang sesuai dengan filter.\n")
+	} else {
+		for i, it := range displayItems {
+			// Hitung status tenggat dalam jam bulat (round to nearest atau ceiling)
+			var slaText string
+			diff := it.TenggatAt.Sub(nowUTC)
+			diffHours := int(math.Round(math.Abs(diff.Hours())))
+			if diffHours < 1 {
+				diffHours = 1
+			}
+
+			if it.Status == domain.StatusSelesai {
+				slaText = "Tuntas"
+			} else if it.Status == domain.StatusDitolak {
+				slaText = "Ditolak"
+			} else if it.IsOverdue || nowUTC.After(it.TenggatAt) {
+				slaText = fmt.Sprintf("Terlambat %d jam", diffHours)
+			} else {
+				slaText = fmt.Sprintf("Sisa %d jam", diffHours)
+			}
+
+			tenggatWIB := it.TenggatAt.In(locWIB).Format("02/01 15:04")
+
+			var orderLine string
+			if includeCustomer && it.NamaPelanggan != "" {
+				orderLine = fmt.Sprintf("%s (%s)", it.KodePesanan, it.NamaPelanggan)
+			} else {
+				orderLine = it.KodePesanan
+			}
+
+			// Format gaya WhatsApp
+			sb.WriteString(fmt.Sprintf("%d. *[%s]* *[%s]* %s\n", i+1, it.KodeKendala, strings.ToUpper(it.Prioritas), it.Judul))
+			sb.WriteString(fmt.Sprintf("   Pesanan: %s\n", orderLine))
+			sb.WriteString(fmt.Sprintf("   Status: %s | Petugas: %s\n", it.Status, it.AssignedNama))
+			sb.WriteString(fmt.Sprintf("   Tenggat: %s WIB (%s)\n", tenggatWIB, slaText))
+			if i < len(displayItems)-1 {
+				sb.WriteString("\n")
+			}
+		}
+
+		if truncated {
+			sisa := total - maxItems
+			sb.WriteString(fmt.Sprintf("\n\n_+%d kendala lainnya, lihat di aplikasi_", sisa))
+		}
+	}
+
+	return &domain.ShareTextResponse{
+		Text:      sb.String(),
+		Count:     total,
+		Truncated: truncated,
+	}
+}
+
 

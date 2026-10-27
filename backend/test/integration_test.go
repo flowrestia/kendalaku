@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/flowrestia/kendalaku/backend/internal/config"
@@ -49,6 +50,7 @@ func setupTestRouter(t *testing.T) *gin.Engine {
 			protected.GET("/issues", h.ListIssues)
 			protected.GET("/issues/:id", h.GetIssueDetail)
 			protected.POST("/issues/:id/transitions", h.TransitionStatus)
+			protected.GET("/share/issues", h.ShareText)
 
 			// Fase 3
 			protected.GET("/dashboard/summary", h.GetDashboardSummary)
@@ -261,4 +263,45 @@ func TestLiveEndpoints(t *testing.T) {
 		t.Fatalf("GET /activities gagal: %d", wAct.Code)
 	}
 	t.Logf("[SUCCESS] GET /activities: %s", wAct.Body.String())
+
+	// 10. Test GET /api/v1/share/issues (Fase 6B: Validasi path baru dan respons 200 dengan text, count, truncated)
+	reqShare, _ := http.NewRequest(http.MethodGet, "/api/v1/share/issues?include_customer=true&assigned_to=me", nil)
+	reqShare.Header.Set("Authorization", "Bearer "+loginResp.Data.Token)
+	wShare := httptest.NewRecorder()
+	r.ServeHTTP(wShare, reqShare)
+	if wShare.Code != http.StatusOK {
+		t.Fatalf("GET /share/issues gagal: status=%d, body=%s", wShare.Code, wShare.Body.String())
+	}
+
+	var shareResp struct {
+		Success bool `json:"success"`
+		Data    struct {
+			Text      string `json:"text"`
+			Count     int    `json:"count"`
+			Truncated bool   `json:"truncated"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(wShare.Body.Bytes(), &shareResp); err != nil {
+		t.Fatalf("Unmarshal respon share gagal: %v", err)
+	}
+	if !shareResp.Success {
+		t.Errorf("Ekspektasi success=true pada GET /share/issues")
+	}
+	if !strings.Contains(shareResp.Data.Text, "DAFTAR KENDALA LAYANAN - KENDALAKU") {
+		t.Errorf("Field text tidak memuat header WhatsApp: %s", shareResp.Data.Text)
+	}
+	t.Logf("[SUCCESS] GET /share/issues: count=%d, truncated=%v", shareResp.Data.Count, shareResp.Data.Truncated)
+
+	// 11. Test GET /api/v1/issues/abc (Validasi bahwa non-numeric ID menghasilkan respons 'ID kendala tidak valid')
+	reqInvalidID, _ := http.NewRequest(http.MethodGet, "/api/v1/issues/abc", nil)
+	reqInvalidID.Header.Set("Authorization", "Bearer "+loginResp.Data.Token)
+	wInvalidID := httptest.NewRecorder()
+	r.ServeHTTP(wInvalidID, reqInvalidID)
+	if wInvalidID.Code != http.StatusBadRequest {
+		t.Fatalf("GET /issues/abc harus mengembalikan 400 Bad Request, didapat: %d", wInvalidID.Code)
+	}
+	if !strings.Contains(wInvalidID.Body.String(), "ID kendala tidak valid") {
+		t.Errorf("Respon /issues/abc harus memuat pesan 'ID kendala tidak valid', didapat: %s", wInvalidID.Body.String())
+	}
+	t.Logf("[SUCCESS] GET /issues/abc: 400 Bad Request 'ID kendala tidak valid'")
 }
