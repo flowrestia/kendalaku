@@ -271,8 +271,18 @@ func (r *Repository) ListIssues(filter domain.IssueFilter) ([]domain.OrderIssue,
 	}
 
 	if filter.Prioritas != "" {
-		conditions = append(conditions, "oi.prioritas = ?")
-		args = append(args, filter.Prioritas)
+		parts := strings.Split(filter.Prioritas, ",")
+		if len(parts) > 1 {
+			placeholders := make([]string, len(parts))
+			for i, p := range parts {
+				placeholders[i] = "?"
+				args = append(args, strings.TrimSpace(p))
+			}
+			conditions = append(conditions, fmt.Sprintf("oi.prioritas IN (%s)", strings.Join(placeholders, ",")))
+		} else {
+			conditions = append(conditions, "oi.prioritas = ?")
+			args = append(args, strings.TrimSpace(filter.Prioritas))
+		}
 	}
 
 	if filter.CategoryID > 0 {
