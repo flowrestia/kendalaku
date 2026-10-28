@@ -228,6 +228,50 @@ class _StatusTransitionModalState extends State<StatusTransitionModal> {
                           ],
                         ),
                         const SizedBox(height: 8),
+                        const Text(
+                          'Pilihan Cepat:',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textMuted,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [
+                            'Barang diganti',
+                            'Alamat dikoreksi',
+                            'Pelanggan dihubungi',
+                            'Data pesanan diperbaiki',
+                            'Pengiriman dijadwalkan ulang',
+                          ].map((template) {
+                            return ActionChip(
+                              label: Text(
+                                template,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                              backgroundColor: Colors.white,
+                              side: BorderSide(
+                                color: AppColors.statusResolved.withValues(alpha: 0.4),
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _catatanPenyelesaianController.text = template;
+                                  _catatanPenyelesaianController.selection = TextSelection.fromPosition(
+                                    TextPosition(offset: template.length),
+                                  );
+                                });
+                              },
+                            );
+                          }).toList(),
+                        ),
+                        const SizedBox(height: 8),
                         TextFormField(
                           controller: _catatanPenyelesaianController,
                           maxLines: 3,
@@ -248,6 +292,7 @@ class _StatusTransitionModalState extends State<StatusTransitionModal> {
                   ),
                   const SizedBox(height: 16),
                 ],
+
 
                 // Action Buttons
                 SizedBox(

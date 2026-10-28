@@ -1,7 +1,10 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/network/api_client.dart';
 import '../../data/models/models.dart';
 import '../../data/repositories/kendala_repository.dart';
+
 
 // ApiClient & Repository Provider
 final apiClientProvider = Provider<ApiClient>((ref) => ApiClient());
@@ -279,4 +282,42 @@ final dueSoonIssuesProvider = FutureProvider.autoDispose<List<OrderIssue>>((ref)
   final repo = ref.watch(repositoryProvider);
   return repo.getIssuesDueSoon(hours: 24);
 });
+
+// ---------------- PROVIDERS FASE 7: THEME MODE ----------------
+
+class ThemeModeNotifier extends Notifier<ThemeMode> {
+  static const String themePrefKey = 'kendalaku_theme_mode';
+
+  @override
+  ThemeMode build() {
+    _loadTheme();
+    return ThemeMode.system;
+  }
+
+  Future<void> _loadTheme() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString(themePrefKey);
+    if (saved == 'light') {
+      state = ThemeMode.light;
+    } else if (saved == 'dark') {
+      state = ThemeMode.dark;
+    } else if (saved == 'system') {
+      state = ThemeMode.system;
+    }
+  }
+
+  Future<void> setThemeMode(ThemeMode mode) async {
+    state = mode;
+    final prefs = await SharedPreferences.getInstance();
+    String val = 'system';
+    if (mode == ThemeMode.light) val = 'light';
+    if (mode == ThemeMode.dark) val = 'dark';
+    await prefs.setString(themePrefKey, val);
+  }
+}
+
+final themeModeProvider = NotifierProvider<ThemeModeNotifier, ThemeMode>(
+  ThemeModeNotifier.new,
+);
+
 

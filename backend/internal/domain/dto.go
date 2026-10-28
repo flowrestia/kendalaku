@@ -14,6 +14,13 @@ type LoginResponse struct {
 	User  User   `json:"user"`
 }
 
+// Request DTO Ubah Password (Fase 7)
+type ChangePasswordRequest struct {
+	PasswordLama string `json:"password_lama" binding:"required"`
+	PasswordBaru string `json:"password_baru" binding:"required,min=8"`
+}
+
+
 // Request DTO Kategori
 type CategoryRequest struct {
 	Nama       string `json:"nama" binding:"required,max=100"`

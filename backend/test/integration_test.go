@@ -55,6 +55,8 @@ func setupTestRouter(t *testing.T) *gin.Engine {
 			protected.PUT("/issues/:id", h.UpdateIssue)
 			protected.POST("/issues/:id/transitions", h.TransitionStatus)
 			protected.GET("/share/issues", h.ShareText)
+			protected.PUT("/auth/password", h.ChangePassword)
+
 
 			// Fase 3
 			protected.GET("/dashboard/summary", h.GetDashboardSummary)

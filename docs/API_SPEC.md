@@ -54,7 +54,32 @@ Jika terjadi kegagalan/error:
 - **Headers**: `Authorization: Bearer <token>`
 - **Response `200 OK`**: Info profile pengguna yang sedang login.
 
+### `PUT /api/v1/auth/password` (Fase 7)
+- **Headers**: `Authorization: Bearer <token>`
+- **Request Body**:
+  ```json
+  {
+    "password_lama": "password123",
+    "password_baru": "passwordBaru456"
+  }
+  ```
+- **Validasi**:
+  - `password_lama` wajib diisi dan harus cocok dengan hash di database (jika salah: `422 UNPROCESSABLE_ENTITY`).
+  - `password_baru` minimal 8 karakter (jika kurang: `422 UNPROCESSABLE_ENTITY`).
+  - `password_baru` tidak boleh sama dengan `password_lama` (jika sama: `422 UNPROCESSABLE_ENTITY`).
+- **Response `200 OK`**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "message": "Kata sandi berhasil diperbarui"
+    },
+    "error": null
+  }
+  ```
+
 ---
+
 
 ## 2. Kategori Kendala (`/api/v1/categories`)
 

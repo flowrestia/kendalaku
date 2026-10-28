@@ -72,7 +72,9 @@ func main() {
 		{
 			// Auth Profile & Users
 			protected.GET("/auth/me", h.GetMe)
+			protected.PUT("/auth/password", h.ChangePassword)
 			protected.GET("/users", h.GetUsers)
+
 
 			// Problem Categories
 			protected.GET("/categories", h.GetCategories)

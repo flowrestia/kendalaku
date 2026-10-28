@@ -47,6 +47,13 @@ func (r *Repository) GetAllUsers() ([]domain.User, error) {
 	return users, err
 }
 
+func (r *Repository) UpdateUserPassword(id uint64, passwordHash string) error {
+	query := "UPDATE users SET password_hash = ? WHERE id = ?"
+	_, err := r.db.Exec(query, passwordHash, id)
+	return err
+}
+
+
 // ---------------- PROBLEM CATEGORY REPOSITORY ----------------
 
 func (r *Repository) GetAllCategories(onlyActive bool) ([]domain.ProblemCategory, error) {

@@ -325,4 +325,16 @@ class KendalaRepository {
     final list = response.data['data'] as List;
     return list.map((e) => OrderIssue.fromJson(e as Map<String, dynamic>)).toList();
   }
+
+  // Auth: PUT /auth/password (Fase 7)
+  Future<void> changePassword(String passwordLama, String passwordBaru) async {
+    await apiClient.dio.put(
+      '/auth/password',
+      data: {
+        'password_lama': passwordLama,
+        'password_baru': passwordBaru,
+      },
+    );
+  }
 }
+

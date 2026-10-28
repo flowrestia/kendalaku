@@ -61,7 +61,34 @@ func (s *Service) GetAllUsers() ([]domain.User, error) {
 	return s.repo.GetAllUsers()
 }
 
+func (s *Service) ChangePassword(userID uint64, req domain.ChangePasswordRequest) error {
+	if len(req.PasswordBaru) < 8 {
+		return errors.New("kata sandi baru minimal 8 karakter")
+	}
+
+	if req.PasswordBaru == req.PasswordLama {
+		return errors.New("kata sandi baru tidak boleh sama dengan kata sandi lama")
+	}
+
+	user, err := s.repo.GetUserByID(userID)
+	if err != nil {
+		return errors.New("pengguna tidak ditemukan")
+	}
+
+	if !hash.CheckPassword(req.PasswordLama, user.PasswordHash) {
+		return errors.New("kata sandi lama tidak sesuai")
+	}
+
+	newHash, err := hash.HashPassword(req.PasswordBaru)
+	if err != nil {
+		return fmt.Errorf("gagal memproses enkripsi kata sandi: %w", err)
+	}
+
+	return s.repo.UpdateUserPassword(userID, newHash)
+}
+
 // ---------------- PROBLEM CATEGORY SERVICE ----------------
+
 
 func (s *Service) GetAllCategories(onlyActive bool) ([]domain.ProblemCategory, error) {
 	return s.repo.GetAllCategories(onlyActive)

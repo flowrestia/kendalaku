@@ -148,6 +148,13 @@ void main() {
     });
 
     testWidgets('Catatan penyelesaian hanya muncul dan wajib diisi jika status = selesai', (tester) async {
+      tester.view.physicalSize = const Size(800, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -171,6 +178,7 @@ void main() {
       expect(find.text('Aturan Wajib: Catatan Penyelesaian'), findsOneWidget);
 
       // Coba simpan saat input kosong
+      await tester.ensureVisible(find.text('Simpan Perubahan Status'));
       await tester.tap(find.text('Simpan Perubahan Status'));
       await tester.pumpAndSettle();
 
@@ -179,6 +187,7 @@ void main() {
       expect(find.text('Catatan penyelesaian wajib diisi jika status selesai'), findsOneWidget);
     });
   });
+
 
   group('Issue Wizard Screen Widget Tests', () {
     testWidgets('Wizard langkah 3 menampilkan semua pilihan prioritas sesuai backend', (tester) async {
@@ -1093,5 +1102,102 @@ void main() {
       expect(find.text('Komentar pengujian dari Flutter'), findsOneWidget);
     });
   });
+
+  group('Fase 7 Widget Tests (Template Catatan Penyelesaian & Mode Tema)', () {
+    testWidgets('Template catatan penyelesaian muncul saat status selesai dipilih dan mengisi kolom saat di-tap', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StatusTransitionModal(
+              currentStatus: 'sedang_diproses',
+              onSubmit: (_, _, _) async {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Pilih status 'Selesai'
+      final selesaiOption = find.text('Selesai');
+      expect(selesaiOption, findsOneWidget);
+      await tester.tap(selesaiOption);
+      await tester.pumpAndSettle();
+
+      // Chip template cepat harus tampil
+      expect(find.text('Pilihan Cepat:'), findsOneWidget);
+      expect(find.text('Barang diganti'), findsOneWidget);
+      expect(find.text('Alamat dikoreksi'), findsOneWidget);
+      expect(find.text('Pelanggan dihubungi'), findsOneWidget);
+      expect(find.text('Data pesanan diperbaiki'), findsOneWidget);
+      expect(find.text('Pengiriman dijadwalkan ulang'), findsOneWidget);
+
+      // Tap chip 'Barang diganti'
+      await tester.tap(find.text('Barang diganti'));
+      await tester.pumpAndSettle();
+
+      // Field catatan penyelesaian harus terisi 'Barang diganti'
+      expect(find.text('Barang diganti'), findsWidgets);
+
+      // Verifikasi user masih bisa mengedit teksnya
+      final penyelesaianField = find.widgetWithText(TextFormField, 'Barang diganti');
+      expect(penyelesaianField, findsOneWidget);
+      await tester.enterText(penyelesaianField, 'Barang diganti dengan unit baru');
+      await tester.pumpAndSettle();
+      expect(find.text('Barang diganti dengan unit baru'), findsOneWidget);
+    });
+
+    testWidgets('Pengaturan menampilkan toggle tema dan merespons pemilihan mode tema', (tester) async {
+      tester.view.physicalSize = const Size(800, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authProvider.overrideWith(() => _MockAuthNotifier(
+                  User(id: 1, nama: 'Administrator', email: 'admin@kendalaku.com', role: 'admin'),
+                )),
+            themeModeProvider.overrideWith(() => ThemeModeNotifier()),
+          ],
+          child: const MaterialApp(
+            home: SettingsScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Verifikasi elemen pengaturan tema
+      expect(find.text('Mode Tampilan Tema'), findsOneWidget);
+      expect(find.byKey(const Key('theme_mode_segmented_button')), findsOneWidget);
+      expect(find.text('Terang'), findsOneWidget);
+      expect(find.text('Gelap'), findsOneWidget);
+      expect(find.text('Sistem'), findsOneWidget);
+
+      // Verifikasi opsi Ubah Kata Sandi ada di Pengaturan
+      expect(find.byKey(const Key('settings_change_password_tile')), findsOneWidget);
+      expect(find.text('Ubah Kata Sandi'), findsOneWidget);
+
+      // Tap opsi 'Gelap'
+      await tester.ensureVisible(find.text('Gelap'));
+      await tester.tap(find.text('Gelap'));
+      await tester.pumpAndSettle();
+
+      // Tap tile 'Ubah Kata Sandi' untuk membuka modal ganti password
+      await tester.ensureVisible(find.byKey(const Key('settings_change_password_tile')));
+      await tester.tap(find.byKey(const Key('settings_change_password_tile')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Ubah Kata Sandi Akun'), findsOneWidget);
+      expect(find.text('Kata Sandi Lama *'), findsOneWidget);
+      expect(find.text('Kata Sandi Baru *'), findsOneWidget);
+      expect(find.text('Konfirmasi Kata Sandi Baru *'), findsOneWidget);
+      expect(find.text('Simpan Kata Sandi'), findsOneWidget);
+    });
+  });
 }
+
+
 

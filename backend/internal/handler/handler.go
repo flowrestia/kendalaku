@@ -74,7 +74,31 @@ func (h *Handler) GetUsers(c *gin.Context) {
 	response.Success(c, http.StatusOK, users)
 }
 
+func (h *Handler) ChangePassword(c *gin.Context) {
+	claims := h.getClaims(c)
+	if claims == nil {
+		response.Unauthorized(c, "Sesi tidak valid")
+		return
+	}
+
+	var req domain.ChangePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "Data kata sandi tidak valid: "+err.Error())
+		return
+	}
+
+	if err := h.svc.ChangePassword(claims.UserID, req); err != nil {
+		response.Error(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, gin.H{
+		"message": "Kata sandi berhasil diperbarui",
+	})
+}
+
 // ---------------- PROBLEM CATEGORY HANDLER ----------------
+
 
 func (h *Handler) GetCategories(c *gin.Context) {
 	onlyActive := c.Query("aktif") == "true"
