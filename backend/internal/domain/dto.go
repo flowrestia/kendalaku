@@ -85,15 +85,27 @@ type PaginatedResult struct {
 
 // DashboardSummaryResponse untuk GET /api/v1/dashboard/summary
 type DashboardSummaryResponse struct {
-	TotalKendala             int     `json:"total"`
-	Baru                     int     `json:"baru"`
-	SedangDiproses           int     `json:"sedang_diproses"`
-	MenungguInformasi        int     `json:"menunggu_informasi"`
-	Selesai                  int     `json:"selesai"`
-	Ditolak                  int     `json:"ditolak"`
-	Terlambat                int     `json:"terlambat"`
+	TotalKendala              int     `json:"total"`
+	Baru                      int     `json:"baru"`
+	SedangDiproses            int     `json:"sedang_diproses"`
+	MenungguInformasi         int     `json:"menunggu_informasi"`
+	Selesai                   int     `json:"selesai"`
+	Ditolak                   int     `json:"ditolak"`
+	Terlambat                 int     `json:"terlambat"`
+	JatuhTempoSegera          int     `json:"jatuh_tempo_segera"` // Dalam 24 jam ke depan (Fase 6)
 	RataRataWaktuPenyelesaian float64 `json:"rata_rata_waktu_jam"`
-	PersentaseSelesai        float64 `json:"persentase_selesai"`
+	PersentaseSelesai         float64 `json:"persentase_selesai"`
+}
+
+// ---------------- DTO FASE 6: TIM, KOMENTAR & REASSIGN ----------------
+
+type CreateCommentRequest struct {
+	Isi string `json:"isi" binding:"required,min=1,max=1000"`
+}
+
+type ReassignIssueRequest struct {
+	AssignedTo uint64 `json:"assigned_to" binding:"required"`
+	Catatan    string `json:"catatan"`
 }
 
 // CategoryStatResponse untuk GET /api/v1/dashboard/by-category

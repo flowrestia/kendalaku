@@ -131,13 +131,9 @@ func SeedDatabase(db *sqlx.DB) error {
 	// 4. Seed 40 Kendala Realistis (dengan variasi sebaran 60 hari terakhir)
 	var issueCount int
 	err := db.Get(&issueCount, "SELECT COUNT(*) FROM order_issues")
-	if err == nil && issueCount >= 40 {
-		log.Println("[INFO] Database sudah memiliki data kendala (total:", issueCount, "), lewati seeder kendala.")
-		return nil
-	}
-
-	adminID := userMap["admin@kendalaku.com"]
-	petugas1ID := userMap["petugas1@kendalaku.com"]
+	if err == nil && issueCount < 40 {
+		adminID := userMap["admin@kendalaku.com"]
+		petugas1ID := userMap["petugas1@kendalaku.com"]
 	petugas2ID := userMap["petugas2@kendalaku.com"]
 	petugasList := []uint64{petugas1ID, petugas2ID}
 
@@ -251,6 +247,46 @@ func SeedDatabase(db *sqlx.DB) error {
 				INSERT INTO issue_transactions (issue_id, status_sebelumnya, status_baru, catatan_tindakan, oleh_user_id, created_at)
 				VALUES (?, 'baru', ?, 'Pembaruan status operasional penanganan kendala', ?, ?)`,
 				issueID, status, assignedTo, createdTime.Add(2*time.Hour),
+			)
+		}
+	}
+	} else {
+		log.Println("[INFO] Database sudah memiliki data kendala (total:", issueCount, "), periksa update jatuh tempo segera.")
+	}
+
+	// 5. Pastikan ada kendala aktif yang jatuh tempo segera (dalam kurun > sekarang dan <= sekarang + 24 jam)
+	var dueSoonCount int
+	_ = db.Get(&dueSoonCount, "SELECT COUNT(*) FROM order_issues WHERE is_archived = 0 AND status NOT IN ('selesai', 'ditolak') AND tenggat_at > UTC_TIMESTAMP() AND tenggat_at <= UTC_TIMESTAMP() + INTERVAL 24 HOUR")
+	if dueSoonCount < 2 {
+		// Update 2 kendala aktif agar tenggatnya jatuh dalam 6 jam dan 18 jam ke depan dari saat ini
+		var activeIDs []uint64
+		_ = db.Select(&activeIDs, "SELECT id FROM order_issues WHERE is_archived = 0 AND status NOT IN ('selesai', 'ditolak') ORDER BY id ASC LIMIT 2")
+		if len(activeIDs) > 0 {
+			_, _ = db.Exec("UPDATE order_issues SET tenggat_at = UTC_TIMESTAMP() + INTERVAL 6 HOUR WHERE id = ?", activeIDs[0])
+		}
+		if len(activeIDs) > 1 {
+			_, _ = db.Exec("UPDATE order_issues SET tenggat_at = UTC_TIMESTAMP() + INTERVAL 18 HOUR WHERE id = ?", activeIDs[1])
+		}
+	}
+
+	// 6. Seed contoh komentar (Fase 6)
+	var commentCount int
+	_ = db.Get(&commentCount, "SELECT COUNT(*) FROM issue_comments")
+	if commentCount == 0 {
+		var firstIssueID uint64
+		_ = db.Get(&firstIssueID, "SELECT id FROM order_issues ORDER BY id ASC LIMIT 1")
+		if firstIssueID > 0 {
+			adminID := userMap["admin@kendalaku.com"]
+			petugas1ID := userMap["petugas1@kendalaku.com"]
+
+			_, _ = db.Exec(`
+				INSERT INTO issue_comments (issue_id, user_id, tipe, isi, created_at) VALUES 
+				(?, ?, 'komentar', 'Mohon konfirmasi ulang ke pihak kurir mengenai nomor resi paket ini.', UTC_TIMESTAMP()),
+				(?, ?, 'komentar', 'Sudah saya hubungi via WhatsApp, kurir sedang mengecek ulang di hub transit.', DATE_ADD(UTC_TIMESTAMP(), INTERVAL 10 MINUTE)),
+				(?, ?, 'sistem', 'Dipindahkan dari Belum Ditugaskan (-) ke Rina Petugas. Catatan: Prioritas tindak lanjut cepat', DATE_ADD(UTC_TIMESTAMP(), INTERVAL 15 MINUTE))`,
+				firstIssueID, adminID,
+				firstIssueID, petugas1ID,
+				firstIssueID, adminID,
 			)
 		}
 	}

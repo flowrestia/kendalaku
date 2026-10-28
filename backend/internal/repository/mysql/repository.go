@@ -382,15 +382,16 @@ func (r *Repository) BeginTx() (*sqlx.Tx, error) {
 // ---------------- FASE 3: DASHBOARD & REPORT REPOSITORY ----------------
 
 type RawSummaryStats struct {
-	Total             int     `db:"total"`
-	Baru              int     `db:"baru"`
-	SedangDiproses    int     `db:"sedang_diproses"`
-	MenungguInformasi int     `db:"menunggu_informasi"`
-	Selesai           int     `db:"selesai"`
-	Ditolak           int     `db:"ditolak"`
-	Terlambat         int     `db:"terlambat"`
+	Total             int             `db:"total"`
+	Baru              int             `db:"baru"`
+	SedangDiproses    int             `db:"sedang_diproses"`
+	MenungguInformasi int             `db:"menunggu_informasi"`
+	Selesai           int             `db:"selesai"`
+	Ditolak           int             `db:"ditolak"`
+	Terlambat         int             `db:"terlambat"`
+	JatuhTempoSegera  int             `db:"jatuh_tempo_segera"`
 	TotalDurationSec  sql.NullFloat64 `db:"total_duration_sec"`
-	ResolvedCount     int     `db:"resolved_count"`
+	ResolvedCount     int             `db:"resolved_count"`
 }
 
 func (r *Repository) GetDashboardSummaryStats() (*RawSummaryStats, error) {
@@ -403,6 +404,7 @@ func (r *Repository) GetDashboardSummaryStats() (*RawSummaryStats, error) {
 			COALESCE(SUM(CASE WHEN status = 'selesai' THEN 1 ELSE 0 END), 0) AS selesai,
 			COALESCE(SUM(CASE WHEN status = 'ditolak' THEN 1 ELSE 0 END), 0) AS ditolak,
 			COALESCE(SUM(CASE WHEN status NOT IN ('selesai', 'ditolak') AND tenggat_at < UTC_TIMESTAMP() THEN 1 ELSE 0 END), 0) AS terlambat,
+			COALESCE(SUM(CASE WHEN status NOT IN ('selesai', 'ditolak') AND tenggat_at > UTC_TIMESTAMP() AND tenggat_at <= UTC_TIMESTAMP() + INTERVAL 24 HOUR THEN 1 ELSE 0 END), 0) AS jatuh_tempo_segera,
 			COALESCE(SUM(CASE WHEN status = 'selesai' AND resolved_at IS NOT NULL THEN TIMESTAMPDIFF(SECOND, created_at, resolved_at) ELSE 0 END), 0) AS total_duration_sec,
 			COALESCE(SUM(CASE WHEN status = 'selesai' AND resolved_at IS NOT NULL THEN 1 ELSE 0 END), 0) AS resolved_count
 		FROM order_issues
@@ -575,4 +577,122 @@ func (r *Repository) GetActivityLogs(limit int) ([]domain.ActivityLogItem, error
 	err := r.db.Select(&list, query, limit)
 	return list, err
 }
+
+// ---------------- FASE 6: COMMENTS, REASSIGN & DUE SOON REPOSITORY ----------------
+
+func (r *Repository) GetCommentsByIssueID(issueID uint64) ([]domain.IssueComment, error) {
+	query := `
+		SELECT 
+			c.id,
+			c.issue_id,
+			c.user_id,
+			c.tipe,
+			c.isi,
+			c.created_at,
+			u.nama AS user_nama,
+			u.role AS user_role
+		FROM issue_comments c
+		JOIN users u ON c.user_id = u.id
+		WHERE c.issue_id = ?
+		ORDER BY c.created_at ASC, c.id ASC`
+
+	var comments []domain.IssueComment
+	err := r.db.Select(&comments, query, issueID)
+	return comments, err
+}
+
+func (r *Repository) CreateComment(issueID, userID uint64, tipe, isi string) (*domain.IssueComment, error) {
+	query := `INSERT INTO issue_comments (issue_id, user_id, tipe, isi, created_at) VALUES (?, ?, ?, ?, UTC_TIMESTAMP())`
+	res, err := r.db.Exec(query, issueID, userID, tipe, isi)
+	if err != nil {
+		return nil, err
+	}
+
+	id, err := res.LastInsertId()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.GetCommentByID(uint64(id))
+}
+
+func (r *Repository) CreateCommentTx(tx *sqlx.Tx, issueID, userID uint64, tipe, isi string) error {
+	query := `INSERT INTO issue_comments (issue_id, user_id, tipe, isi, created_at) VALUES (?, ?, ?, ?, UTC_TIMESTAMP())`
+	_, err := tx.Exec(query, issueID, userID, tipe, isi)
+	return err
+}
+
+func (r *Repository) UpdateIssueAssignedToTx(tx *sqlx.Tx, issueID, assignedTo uint64) error {
+	query := `UPDATE order_issues SET assigned_to = ?, updated_at = UTC_TIMESTAMP() WHERE id = ?`
+	_, err := tx.Exec(query, assignedTo, issueID)
+	return err
+}
+
+func (r *Repository) GetCommentByID(id uint64) (*domain.IssueComment, error) {
+	query := `
+		SELECT 
+			c.id,
+			c.issue_id,
+			c.user_id,
+			c.tipe,
+			c.isi,
+			c.created_at,
+			u.nama AS user_nama,
+			u.role AS user_role
+		FROM issue_comments c
+		JOIN users u ON c.user_id = u.id
+		WHERE c.id = ?`
+
+	var comment domain.IssueComment
+	err := r.db.Get(&comment, query, id)
+	return &comment, err
+}
+
+func (r *Repository) GetIssuesDueSoon(hours int) ([]domain.OrderIssue, error) {
+	if hours <= 0 {
+		hours = 24
+	}
+
+	query := `
+		SELECT 
+			oi.id,
+			oi.kode_kendala,
+			oi.order_id,
+			oi.category_id,
+			oi.judul,
+			oi.deskripsi,
+			oi.prioritas,
+			oi.status,
+			oi.tenggat_at,
+			oi.assigned_to,
+			oi.catatan_penyelesaian,
+			oi.is_archived,
+			oi.created_by,
+			oi.created_at,
+			oi.updated_at,
+			oi.resolved_at,
+			o.kode_pesanan,
+			o.nama_pelanggan,
+			c.nama AS category_nama,
+			c.warna_hex AS category_warna_hex,
+			c.ikon AS category_ikon,
+			COALESCE(u_assign.nama, '-') AS assigned_nama,
+			u_creator.nama AS created_by_nama,
+			(oi.status NOT IN ('selesai', 'ditolak') AND oi.tenggat_at < UTC_TIMESTAMP()) AS is_overdue
+		FROM order_issues oi
+		JOIN orders o ON oi.order_id = o.id
+		JOIN problem_categories c ON oi.category_id = c.id
+		JOIN users u_creator ON oi.created_by = u_creator.id
+		LEFT JOIN users u_assign ON oi.assigned_to = u_assign.id
+		WHERE oi.is_archived = 0
+		  AND oi.status NOT IN ('selesai', 'ditolak')
+		  AND oi.tenggat_at > UTC_TIMESTAMP()
+		  AND oi.tenggat_at <= UTC_TIMESTAMP() + INTERVAL ? HOUR
+		ORDER BY oi.tenggat_at ASC`
+
+	var list []domain.OrderIssue
+	err := r.db.Select(&list, query, hours)
+	return list, err
+}
+
 

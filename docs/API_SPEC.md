@@ -176,6 +176,72 @@ Jika terjadi kegagalan/error:
 ### `GET /api/v1/issues/:id/transitions`
 - Mengambil timeline riwayat tindakan lengkap beserta waktu dan nama petugas.
 
+### `GET /api/v1/issues/:id/comments`
+- Semua user login dapat membaca komentar pada kendala.
+- Diurutkan berdasarkan waktu pembuatan secara kronologis (`created_at ASC`).
+- Response:
+  ```json
+  {
+    "success": true,
+    "data": [
+      {
+        "id": 1,
+        "issue_id": 10,
+        "user_id": 1,
+        "user_nama": "Administrator",
+        "tipe": "sistem",
+        "isi": "Dipindahkan dari Rina Petugas ke Doni Petugas. Alasan: Realloc",
+        "created_at": "2026-10-27T10:00:00Z"
+      }
+    ],
+    "error": null
+  }
+  ```
+
+### `POST /api/v1/issues/:id/comments`
+- Semua user login dapat mengirim komentar pada kendala.
+- Body:
+  ```json
+  {
+    "isi": "Pelanggan sudah mengonfirmasi alamat baru via telepon."
+  }
+  ```
+- Validasi: `isi` wajib, maksimal 1000 karakter.
+
+### `PATCH /api/v1/issues/:id/assign`
+- Khusus role **Admin**. Role Petugas akan menerima response `403 FORBIDDEN`.
+- Body:
+  ```json
+  {
+    "assigned_to": 3,
+    "catatan": "Dialihkan karena beban kerja tinggi"
+  }
+  ```
+- Validasi:
+  - Kendala berstatus `selesai` atau `ditolak` tidak dapat dialihkan (balas `422 UNPROCESSABLE_ENTITY`).
+  - `assigned_to` harus merujuk ke user dengan role `petugas` yang aktif di database.
+- Eksekusi transaksi atomik:
+  1. Perbarui kolom `assigned_to` pada `order_issues`.
+  2. Tambahkan komentar dengan `tipe: 'sistem'` berbunyi: `"Dipindahkan dari [Nama Lama] ke [Nama Baru]"` (+ catatan jika ada).
+
+### Aturan Hak Akses Role
+- **Admin**: Akses penuh ke semua operasi (CRUD kategori, reassign kendala, hapus kendala, arsip kendala, ubah status kendala manapun).
+- **Petugas**:
+  - Boleh membuat kendala baru (`POST /issues`).
+  - Hanya boleh mengubah data kendala (`PUT /issues/:id`) dan melakukan transisi status (`POST /issues/:id/transitions`) jika kendala tersebut ditugaskan ke dirinya (`assigned_to == user.ID`).
+  - Jika bukan miliknya, server membalas `403 FORBIDDEN` dengan format error standar:
+    ```json
+    {
+      "success": false,
+      "data": null,
+      "error": {
+        "code": "FORBIDDEN",
+        "message": "Anda hanya diizinkan memperbarui kendala yang ditugaskan kepada Anda"
+      }
+    }
+    ```
+  - Ditolak dari: reassign (`PATCH /assign`), arsip (`PATCH /archive`), hapus (`DELETE /issues/:id`), dan CRUD kategori.
+
 ---
 
 ## 6. Dashboard & Analitik (`/api/v1/dashboard`)
@@ -185,8 +251,13 @@ Jika terjadi kegagalan/error:
   - `total`: Total kendala aktif (tidak diarsip).
   - `baru`, `sedang_diproses`, `menunggu_informasi`, `selesai`, `ditolak`.
   - `terlambat`: Total kendala belum selesai/ditolak yang melewati `tenggat_at`.
+  - `jatuh_tempo_segera`: Total kendala belum selesai/ditolak yang tenggat waktunya dalam kurun waktu 24 jam ke depan.
   - `rata_rata_waktu_jam`: Rata-rata durasi penyelesaian (jam) untuk kendala berstatus selesai.
   - `persentase_selesai`: Persentase kendala berstatus selesai dari total kendala (%).
+
+### `GET /api/v1/dashboard/due-soon?hours=24`
+- Mengambil daftar kendala aktif (belum selesai/ditolak) yang jatuh tempo antara saat ini dan `hours` jam ke depan (default `hours=24`).
+- Diurutkan berdasarkan `tenggat_at ASC` (yang paling segera jatuh tempo berada di urutan pertama).
 
 ### `GET /api/v1/dashboard/by-category`
 - Mengembalikan distribusi kendala per kategori (`category_id`, `nama`, `warna_hex`, `ikon`, `total`, `persentase`) untuk visualisasi Donut Chart.

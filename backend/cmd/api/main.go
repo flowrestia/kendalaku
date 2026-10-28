@@ -88,8 +88,13 @@ func main() {
 			protected.POST("/issues", h.CreateIssue)
 			protected.GET("/issues/:id", h.GetIssueDetail)
 			protected.PUT("/issues/:id", h.UpdateIssue)
-			protected.PATCH("/issues/:id/archive", h.ArchiveIssue)
+			protected.PATCH("/issues/:id/archive", middleware.RequireRole(domain.RoleAdmin), h.ArchiveIssue)
 			protected.DELETE("/issues/:id", middleware.RequireRole(domain.RoleAdmin), h.DeleteIssue)
+
+			// Fase 6: Reassign & Komentar
+			protected.PATCH("/issues/:id/assign", middleware.RequireRole(domain.RoleAdmin), h.ReassignIssue)
+			protected.GET("/issues/:id/comments", h.GetComments)
+			protected.POST("/issues/:id/comments", h.CreateComment)
 
 			// Share WhatsApp (Fase 6B)
 			protected.GET("/share/issues", h.ShareText)
@@ -98,10 +103,11 @@ func main() {
 			protected.POST("/issues/:id/transitions", h.TransitionStatus)
 			protected.GET("/issues/:id/transitions", h.GetIssueTransitions)
 
-			// Fase 3: Dashboard & Analitik
+			// Fase 3 & Fase 6: Dashboard & Analitik
 			protected.GET("/dashboard/summary", h.GetDashboardSummary)
 			protected.GET("/dashboard/by-category", h.GetDashboardByCategory)
 			protected.GET("/dashboard/trend", h.GetDashboardTrend)
+			protected.GET("/dashboard/due-soon", h.GetIssuesDueSoon)
 
 			// Fase 3: Rekap Laporan & Ekspor CSV
 			protected.GET("/reports/recap", h.GetReportRecap)

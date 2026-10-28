@@ -103,7 +103,7 @@ class IssueFilterState {
   final String? status;
   final String? prioritas;
   final int? categoryId;
-  final int? assignedTo;
+  final dynamic assignedTo; // int atau String 'me'
   final bool? isOverdue;
 
   IssueFilterState({
@@ -120,7 +120,7 @@ class IssueFilterState {
     String? status,
     String? prioritas,
     int? categoryId,
-    int? assignedTo,
+    dynamic assignedTo,
     bool? isOverdue,
     bool clearStatus = false,
     bool clearPrioritas = false,
@@ -266,5 +266,17 @@ final reportRecapProvider = FutureProvider.autoDispose<ReportRecap>((ref) async 
 final activitiesListProvider = FutureProvider.autoDispose<List<ActivityLogItem>>((ref) async {
   final repo = ref.watch(repositoryProvider);
   return repo.getActivities();
+});
+
+// ---------------- PROVIDERS FASE 6: COMMENTS & DUE SOON ----------------
+
+final issueCommentsProvider = FutureProvider.autoDispose.family<List<IssueComment>, int>((ref, issueId) async {
+  final repo = ref.watch(repositoryProvider);
+  return repo.getComments(issueId);
+});
+
+final dueSoonIssuesProvider = FutureProvider.autoDispose<List<OrderIssue>>((ref) async {
+  final repo = ref.watch(repositoryProvider);
+  return repo.getIssuesDueSoon(hours: 24);
 });
 

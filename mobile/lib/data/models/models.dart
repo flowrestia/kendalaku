@@ -222,6 +222,7 @@ class DashboardSummary {
   final int selesai;
   final int ditolak;
   final int terlambat;
+  final int jatuhTempoSegera;
   final double rataRataWaktuJam;
   final double persentaseSelesai;
 
@@ -233,6 +234,7 @@ class DashboardSummary {
     required this.selesai,
     required this.ditolak,
     required this.terlambat,
+    required this.jatuhTempoSegera,
     required this.rataRataWaktuJam,
     required this.persentaseSelesai,
   });
@@ -246,10 +248,45 @@ class DashboardSummary {
       selesai: json['selesai'] as int? ?? 0,
       ditolak: json['ditolak'] as int? ?? 0,
       terlambat: json['terlambat'] as int? ?? 0,
+      jatuhTempoSegera: json['jatuh_tempo_segera'] as int? ?? 0,
       rataRataWaktuJam: (json['rata_rata_waktu_jam'] as num?)?.toDouble() ?? 0.0,
       persentaseSelesai: (json['persentase_selesai'] as num?)?.toDouble() ?? 0.0,
     );
   }
+}
+
+class IssueComment {
+  final int id;
+  final int issueId;
+  final int userId;
+  final String userNama;
+  final String tipe; // 'komentar' | 'sistem'
+  final String isi;
+  final String createdAt;
+
+  IssueComment({
+    required this.id,
+    required this.issueId,
+    required this.userId,
+    required this.userNama,
+    required this.tipe,
+    required this.isi,
+    required this.createdAt,
+  });
+
+  factory IssueComment.fromJson(Map<String, dynamic> json) {
+    return IssueComment(
+      id: json['id'] as int? ?? 0,
+      issueId: json['issue_id'] as int? ?? 0,
+      userId: json['user_id'] as int? ?? 0,
+      userNama: json['user_nama'] as String? ?? 'Pengguna',
+      tipe: json['tipe'] as String? ?? 'komentar',
+      isi: json['isi'] as String? ?? '',
+      createdAt: json['created_at'] as String? ?? '',
+    );
+  }
+
+  bool get isSistem => tipe == 'sistem';
 }
 
 class CategoryStat {

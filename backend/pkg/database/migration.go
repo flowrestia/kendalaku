@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"path/filepath"
 	"strings"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -23,13 +24,19 @@ func RunMigrations(migrationDSN, migrationsPath, dbName string) error {
 		return fmt.Errorf("gagal membuat driver migrasi: %w", err)
 	}
 
+	absMigrationsPath, err := filepath.Abs(migrationsPath)
+	if err != nil {
+		return fmt.Errorf("gagal mendapatkan path absolut migrasi: %w", err)
+	}
+	absMigrationsPath = filepath.ToSlash(absMigrationsPath)
+
 	m, err := migrate.NewWithDatabaseInstance(
-		"file://"+migrationsPath,
+		"file://"+absMigrationsPath,
 		dbName,
 		driver,
 	)
 	if err != nil {
-		return fmt.Errorf("gagal inisialisasi golang-migrate: %w", err)
+		return fmt.Errorf("gagal inisialisasi golang-migrate (path: %s): %w", absMigrationsPath, err)
 	}
 
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {

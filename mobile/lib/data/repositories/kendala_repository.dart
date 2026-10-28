@@ -53,7 +53,7 @@ class KendalaRepository {
     String? status,
     String? prioritas,
     int? categoryId,
-    int? assignedTo,
+    dynamic assignedTo, // int atau "me"
     bool? isOverdue,
     int page = 1,
     int limit = 10,
@@ -66,7 +66,9 @@ class KendalaRepository {
     if (status != null && status.isNotEmpty) queryParams['status'] = status;
     if (prioritas != null && prioritas.isNotEmpty) queryParams['prioritas'] = prioritas;
     if (categoryId != null && categoryId > 0) queryParams['category_id'] = categoryId;
-    if (assignedTo != null && assignedTo > 0) queryParams['assigned_to'] = assignedTo;
+    if (assignedTo != null && assignedTo.toString().isNotEmpty) {
+      queryParams['assigned_to'] = assignedTo.toString();
+    }
     if (isOverdue != null) queryParams['is_overdue'] = isOverdue;
 
     final response = await apiClient.dio.get(
@@ -282,5 +284,45 @@ class KendalaRepository {
     );
     final data = response.data['data'] as Map<String, dynamic>;
     return ShareTextResult.fromJson(data);
+  }
+
+  // ---------------- FASE 6: COMMENTS, REASSIGN, DUE-SOON ----------------
+
+  // Komentar: GET /issues/:id/comments
+  Future<List<IssueComment>> getComments(int issueId) async {
+    final response = await apiClient.dio.get('/issues/$issueId/comments');
+    final list = response.data['data'] as List;
+    return list.map((e) => IssueComment.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  // Komentar: POST /issues/:id/comments
+  Future<IssueComment> addComment(int issueId, String isi) async {
+    final response = await apiClient.dio.post(
+      '/issues/$issueId/comments',
+      data: {'isi': isi},
+    );
+    final data = response.data['data'] as Map<String, dynamic>;
+    return IssueComment.fromJson(data);
+  }
+
+  // Reassign: PATCH /issues/:id/assign
+  Future<void> reassignIssue(int issueId, int assignedTo, {String? catatan}) async {
+    final payload = <String, dynamic>{
+      'assigned_to': assignedTo,
+    };
+    if (catatan != null && catatan.trim().isNotEmpty) {
+      payload['catatan'] = catatan.trim();
+    }
+    await apiClient.dio.patch('/issues/$issueId/assign', data: payload);
+  }
+
+  // Due Soon: GET /dashboard/due-soon?hours=24
+  Future<List<OrderIssue>> getIssuesDueSoon({int hours = 24}) async {
+    final response = await apiClient.dio.get(
+      '/dashboard/due-soon',
+      queryParameters: {'hours': hours},
+    );
+    final list = response.data['data'] as List;
+    return list.map((e) => OrderIssue.fromJson(e as Map<String, dynamic>)).toList();
   }
 }

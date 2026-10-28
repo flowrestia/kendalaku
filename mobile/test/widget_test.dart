@@ -8,6 +8,7 @@ import 'package:mobile/providers/app_providers.dart';
 import 'package:mobile/core/utils/whatsapp_util.dart';
 import 'package:mobile/views/categories/manage_categories_screen.dart';
 import 'package:mobile/views/dashboard/dashboard_screen.dart';
+import 'package:mobile/views/issues/issue_detail_screen.dart';
 import 'package:mobile/views/issues/issue_wizard_screen.dart';
 import 'package:mobile/views/issues/issues_list_screen.dart';
 import 'package:mobile/views/settings/settings_screen.dart';
@@ -23,6 +24,11 @@ class _MockAuthNotifier extends AuthNotifier {
         isAuthenticated: initialUser != null,
         user: initialUser,
       );
+
+  @override
+  Future<void> checkInitialAuth() async {
+    // No-op for tests to prevent overriding mock state or async timer leaks
+  }
 }
 
 void main() {
@@ -334,6 +340,7 @@ void main() {
         selesai: 15,
         ditolak: 0,
         terlambat: 4,
+        jatuhTempoSegera: 3,
         rataRataWaktuJam: 3.5,
         persentaseSelesai: 35.7,
       );
@@ -405,6 +412,7 @@ void main() {
               'items': dummyIssues,
               'total': 1,
             }),
+            dueSoonIssuesProvider.overrideWith((ref) => dummyIssues),
           ],
           child: const MaterialApp(
             home: DashboardScreen(),
@@ -444,7 +452,7 @@ void main() {
 
       // 6. Verifikasi List "Perlu Perhatian"
       expect(find.text('Perlu Perhatian (Terlambat & Kritis)'), findsOneWidget);
-      expect(find.text('Barang Rusak Berat'), findsOneWidget);
+      expect(find.text('Barang Rusak Berat'), findsWidgets);
     });
   });
 
@@ -867,4 +875,223 @@ void main() {
       await tester.pumpAndSettle();
     });
   });
+
+  // ---------------- WIDGET TESTS FASE 6 ----------------
+  group('Fase 6 Teamwork & Roles Tests', () {
+    final sampleIssueForReassign = OrderIssue(
+      id: 99,
+      kodeKendala: 'KND-99',
+      orderId: 10,
+      categoryId: 1,
+      judul: 'Paket salah alamat pengiriman',
+      deskripsi: 'Alamat tujuan tidak ditemukan kurir',
+      prioritas: 'tinggi',
+      status: 'sedang_diproses',
+      tenggatAt: '2026-10-28T10:00:00Z',
+      assignedTo: 2,
+      isArchived: false,
+      createdBy: 1,
+      createdAt: '2026-10-27T08:00:00Z',
+      updatedAt: '2026-10-27T08:00:00Z',
+      kodePesanan: 'ORD-99',
+      namaPelanggan: 'Budi Santoso',
+      categoryNama: 'Pengiriman',
+      categoryWarnaHex: '#3B82F6',
+      categoryIkon: 'local_shipping_rounded',
+      assignedNama: 'Rina Petugas',
+      createdByNama: 'Admin',
+      isOverdue: false,
+    );
+
+    testWidgets('13A-1: Tombol reassign tersembunyi untuk Petugas', (tester) async {
+      tester.view.physicalSize = const Size(800, 1200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      // Render sebagai Petugas (ID 3, bukan pemilik ID 2)
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authProvider.overrideWith(() => _MockAuthNotifier(
+                  User(id: 3, nama: 'Doni Petugas', email: 'doni@kendalaku.com', role: 'petugas'),
+                )),
+            issueDetailProvider(99).overrideWith((ref) => sampleIssueForReassign),
+            issueTransitionsProvider(99).overrideWith((ref) => []),
+            issueCommentsProvider(99).overrideWith((ref) => []),
+            usersListProvider.overrideWith((ref) => []),
+          ],
+          child: const MaterialApp(
+            home: IssueDetailScreen(issueId: 99),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Tombol reassign (tooltip: 'Pindahkan ke Petugas Lain') tidak boleh ada
+      expect(find.byTooltip('Pindahkan ke Petugas Lain'), findsNothing);
+      expect(find.text('Pindahkan'), findsNothing);
+    });
+
+    testWidgets('13A-2: Tombol reassign muncul untuk Admin', (tester) async {
+      tester.view.physicalSize = const Size(800, 1200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      // Render sebagai Admin (ID 1)
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authProvider.overrideWith(() => _MockAuthNotifier(
+                  User(id: 1, nama: 'Admin Super', email: 'admin@kendalaku.com', role: 'admin'),
+                )),
+            issueDetailProvider(99).overrideWith((ref) => sampleIssueForReassign),
+            issueTransitionsProvider(99).overrideWith((ref) => []),
+            issueCommentsProvider(99).overrideWith((ref) => []),
+            usersListProvider.overrideWith((ref) => []),
+          ],
+          child: const MaterialApp(
+            home: IssueDetailScreen(issueId: 99),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Tombol reassign harus muncul untuk Admin
+      expect(find.byTooltip('Pindahkan ke Petugas Lain'), findsOneWidget);
+    });
+
+    testWidgets('13B-1: Aksi ubah status disembunyikan untuk Petugas non-pemilik', (tester) async {
+      tester.view.physicalSize = const Size(800, 1200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      // Petugas ID 3 membuka kendala milik Petugas ID 2
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authProvider.overrideWith(() => _MockAuthNotifier(
+                  User(id: 3, nama: 'Doni Petugas', email: 'doni@kendalaku.com', role: 'petugas'),
+                )),
+            issueDetailProvider(99).overrideWith((ref) => sampleIssueForReassign),
+            issueTransitionsProvider(99).overrideWith((ref) => []),
+            issueCommentsProvider(99).overrideWith((ref) => []),
+            usersListProvider.overrideWith((ref) => []),
+          ],
+          child: const MaterialApp(
+            home: IssueDetailScreen(issueId: 99),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Tombol Ubah Status di AppBar tidak boleh ada
+      expect(find.text('Ubah Status'), findsNothing);
+
+      // Teks penjelas hak akses harus tampil
+      expect(find.textContaining('Anda sedang melihat kendala petugas lain'), findsOneWidget);
+    });
+
+    testWidgets('13B-2: Aksi ubah status muncul untuk Petugas pemilik kendala', (tester) async {
+      tester.view.physicalSize = const Size(800, 1200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      // Dibuka oleh Petugas pemiliknya (ID 2), tombol Ubah Status muncul
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authProvider.overrideWith(() => _MockAuthNotifier(
+                  User(id: 2, nama: 'Rina Petugas', email: 'rina@kendalaku.com', role: 'petugas'),
+                )),
+            issueDetailProvider(99).overrideWith((ref) => sampleIssueForReassign),
+            issueTransitionsProvider(99).overrideWith((ref) => []),
+            issueCommentsProvider(99).overrideWith((ref) => []),
+            usersListProvider.overrideWith((ref) => []),
+          ],
+          child: const MaterialApp(
+            home: IssueDetailScreen(issueId: 99),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Ubah Status'), findsOneWidget);
+      expect(find.textContaining('Anda sedang melihat kendala petugas lain'), findsNothing);
+    });
+
+    testWidgets('13C: Komentar terkirim dan tampil dalam timeline', (tester) async {
+      tester.view.physicalSize = const Size(800, 1200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final comments = <IssueComment>[
+        IssueComment(
+          id: 1,
+          issueId: 99,
+          userId: 2,
+          userNama: 'Rina Petugas',
+          tipe: 'komentar',
+          isi: 'Sudah dihubungi pihak kurir logistik',
+          createdAt: '2026-10-27T08:30:00Z',
+        ),
+        IssueComment(
+          id: 2,
+          issueId: 99,
+          userId: 1,
+          userNama: 'Administrator',
+          tipe: 'sistem',
+          isi: 'Dipindahkan dari Rina ke Doni. Catatan: Pergantian shift',
+          createdAt: '2026-10-27T09:00:00Z',
+        ),
+      ];
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authProvider.overrideWith(() => _MockAuthNotifier(
+                  User(id: 1, nama: 'Administrator', email: 'admin@kendalaku.com', role: 'admin'),
+                )),
+            issueDetailProvider(99).overrideWith((ref) => sampleIssueForReassign),
+            issueTransitionsProvider(99).overrideWith((ref) => []),
+            issueCommentsProvider(99).overrideWith((ref) => comments),
+            usersListProvider.overrideWith((ref) => []),
+          ],
+          child: const MaterialApp(
+            home: IssueDetailScreen(issueId: 99),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Komentar user dan sistem tampil dalam timeline
+      expect(find.text('Sudah dihubungi pihak kurir logistik'), findsOneWidget);
+      expect(find.text('Aktivitas Sistem'), findsOneWidget);
+      expect(find.textContaining('Dipindahkan dari Rina ke Doni'), findsOneWidget);
+
+      // Kolom input komentar di bawah ada
+      expect(find.byType(TextField), findsOneWidget);
+      expect(find.byIcon(Icons.send_rounded), findsOneWidget);
+
+      // Masukkan teks komentar baru
+      await tester.enterText(find.byType(TextField), 'Komentar pengujian dari Flutter');
+      await tester.pump();
+      expect(find.text('Komentar pengujian dari Flutter'), findsOneWidget);
+    });
+  });
 }
+

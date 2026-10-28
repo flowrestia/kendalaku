@@ -11,6 +11,8 @@ const (
 	RolePetugas = "petugas"
 )
 
+var ErrForbidden = errors.New("Anda tidak memiliki hak akses untuk mengubah atau memproses kendala ini")
+
 // Definisi Prioritas
 const (
 	PrioritasRendah = "rendah"
@@ -103,6 +105,26 @@ type IssueTransaction struct {
 
 	// Relasi
 	NamaUser string `db:"nama_user" json:"nama_user,omitempty"`
+}
+
+// Konstanta Tipe Komentar (Fase 6)
+const (
+	CommentTypeKomentar = "komentar"
+	CommentTypeSistem   = "sistem"
+)
+
+// Model Komentar Kendala (Fase 6)
+type IssueComment struct {
+	ID        uint64    `db:"id" json:"id"`
+	IssueID   uint64    `db:"issue_id" json:"issue_id"`
+	UserID    uint64    `db:"user_id" json:"user_id"`
+	Tipe      string    `db:"tipe" json:"tipe"`
+	Isi       string    `db:"isi" json:"isi"`
+	CreatedAt time.Time `db:"created_at" json:"created_at"`
+
+	// Relasi
+	UserNama string `db:"user_nama" json:"user_nama"`
+	UserRole string `db:"user_role" json:"user_role"`
 }
 
 // Validasi Transisi Status Bisnis

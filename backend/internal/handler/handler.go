@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -312,6 +313,12 @@ func (h *Handler) GetIssueDetail(c *gin.Context) {
 }
 
 func (h *Handler) UpdateIssue(c *gin.Context) {
+	claims := h.getClaims(c)
+	if claims == nil {
+		response.Unauthorized(c, "Sesi tidak valid")
+		return
+	}
+
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		response.BadRequest(c, "ID kendala tidak valid")
@@ -324,8 +331,12 @@ func (h *Handler) UpdateIssue(c *gin.Context) {
 		return
 	}
 
-	issue, err := h.svc.UpdateIssue(id, req)
+	issue, err := h.svc.UpdateIssue(id, req, claims.Role, claims.UserID)
 	if err != nil {
+		if errors.Is(err, domain.ErrForbidden) {
+			response.Forbidden(c, err.Error())
+			return
+		}
 		response.UnprocessableEntity(c, "UPDATE_ISSUE_FAILED", err.Error())
 		return
 	}
@@ -401,8 +412,12 @@ func (h *Handler) TransitionStatus(c *gin.Context) {
 		return
 	}
 
-	issue, err := h.svc.TransitionStatus(id, req, claims.UserID)
+	issue, err := h.svc.TransitionStatus(id, req, claims.UserID, claims.Role)
 	if err != nil {
+		if errors.Is(err, domain.ErrForbidden) {
+			response.Forbidden(c, err.Error())
+			return
+		}
 		// Tolak dengan HTTP 422 jika aturan bisnis dilanggar
 		response.UnprocessableEntity(c, "INVALID_STATUS_TRANSITION", err.Error())
 		return
@@ -425,6 +440,91 @@ func (h *Handler) GetIssueTransitions(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusOK, transitions)
+}
+
+// ---------------- FASE 6: COMMENTS & REASSIGN HANDLERS ----------------
+
+func (h *Handler) GetComments(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "ID kendala tidak valid")
+		return
+	}
+
+	comments, err := h.svc.GetComments(id)
+	if err != nil {
+		response.NotFound(c, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, comments)
+}
+
+func (h *Handler) CreateComment(c *gin.Context) {
+	claims := h.getClaims(c)
+	if claims == nil {
+		response.Unauthorized(c, "Sesi tidak valid")
+		return
+	}
+
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "ID kendala tidak valid")
+		return
+	}
+
+	var req domain.CreateCommentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Isi komentar wajib diisi (maksimal 1000 karakter): "+err.Error())
+		return
+	}
+
+	comment, err := h.svc.CreateComment(id, claims.UserID, req)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusCreated, comment)
+}
+
+func (h *Handler) ReassignIssue(c *gin.Context) {
+	claims := h.getClaims(c)
+	if claims == nil {
+		response.Unauthorized(c, "Sesi tidak valid")
+		return
+	}
+
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "ID kendala tidak valid")
+		return
+	}
+
+	var req domain.ReassignIssueRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Data penugasan tidak valid: "+err.Error())
+		return
+	}
+
+	issue, err := h.svc.ReassignIssue(id, claims.UserID, req)
+	if err != nil {
+		response.UnprocessableEntity(c, "REASSIGN_FAILED", err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, issue)
+}
+
+func (h *Handler) GetIssuesDueSoon(c *gin.Context) {
+	hours, _ := strconv.Atoi(c.DefaultQuery("hours", "24"))
+	issues, err := h.svc.GetIssuesDueSoon(hours)
+	if err != nil {
+		response.InternalServerError(c, "Gagal mengambil daftar kendala jatuh tempo: "+err.Error())
+		return
+	}
+
+	response.Success(c, http.StatusOK, issues)
 }
 
 // ---------------- FASE 3: DASHBOARD, REPORT & ACTIVITY HANDLERS ----------------

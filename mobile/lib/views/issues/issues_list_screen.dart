@@ -109,7 +109,7 @@ class _IssuesListScreenState extends ConsumerState<IssuesListScreen> {
         filter.assignedTo == null;
     final isOverdueActive = filter.isOverdue == true;
     final isHighPriorityActive = filter.prioritas == 'tinggi,kritis';
-    final isMyIssuesActive = userId != null && filter.assignedTo == userId;
+    final isMyIssuesActive = filter.assignedTo == 'me' || (userId != null && filter.assignedTo == userId);
 
     return Scaffold(
       body: Container(
@@ -392,11 +392,10 @@ class _IssuesListScreenState extends ConsumerState<IssuesListScreen> {
                         accentColor: AppColors.accentTeal,
                         isSelected: isMyIssuesActive,
                         onTap: () {
-                          if (userId == null) return;
                           if (isMyIssuesActive) {
                             ref.read(issueFilterProvider.notifier).updateFilter((s) => s.copyWith(clearAssigned: true));
                           } else {
-                            ref.read(issueFilterProvider.notifier).updateFilter((s) => s.copyWith(assignedTo: userId));
+                            ref.read(issueFilterProvider.notifier).updateFilter((s) => s.copyWith(assignedTo: 'me'));
                           }
                         },
                       ),

@@ -225,10 +225,17 @@ func (s *Service) ListIssues(filter domain.IssueFilter) (*domain.PaginatedResult
 	}, nil
 }
 
-func (s *Service) UpdateIssue(id uint64, req domain.UpdateIssueRequest) (*domain.OrderIssue, error) {
+func (s *Service) UpdateIssue(id uint64, req domain.UpdateIssueRequest, userRole string, userID uint64) (*domain.OrderIssue, error) {
 	existing, err := s.repo.GetIssueByID(id)
 	if err != nil {
 		return nil, errors.New("kendala tidak ditemukan")
+	}
+
+	// Aturan Hak Akses: Petugas hanya boleh mengubah kendala yang ditugaskan kepada dirinya
+	if userRole != domain.RoleAdmin {
+		if existing.AssignedTo == nil || *existing.AssignedTo != userID {
+			return nil, domain.ErrForbidden
+		}
 	}
 
 	if existing.Status == domain.StatusSelesai || existing.Status == domain.StatusDitolak {
@@ -271,7 +278,7 @@ func (s *Service) DeleteIssue(id uint64, userRole string) error {
 
 // ---------------- TRANSISI STATUS PENANGANAN SERVICE ----------------
 
-func (s *Service) TransitionStatus(issueID uint64, req domain.TransitionStatusRequest, userID uint64) (*domain.OrderIssue, error) {
+func (s *Service) TransitionStatus(issueID uint64, req domain.TransitionStatusRequest, userID uint64, userRole string) (*domain.OrderIssue, error) {
 	// Mulai Database Transaction dengan SELECT ... FOR UPDATE
 	tx, err := s.repo.BeginTx()
 	if err != nil {
@@ -282,6 +289,13 @@ func (s *Service) TransitionStatus(issueID uint64, req domain.TransitionStatusRe
 	existing, err := s.repo.GetIssueByIDForUpdate(tx, issueID)
 	if err != nil {
 		return nil, errors.New("kendala tidak ditemukan")
+	}
+
+	// Aturan Hak Akses: Petugas hanya boleh memproses transisi pada kendala yang ditugaskan kepada dirinya
+	if userRole != domain.RoleAdmin {
+		if existing.AssignedTo == nil || *existing.AssignedTo != userID {
+			return nil, domain.ErrForbidden
+		}
 	}
 
 	// 1. Validasi State Machine & Catatan Penyelesaian
@@ -367,6 +381,7 @@ func (s *Service) GetDashboardSummary() (*domain.DashboardSummaryResponse, error
 		Selesai:                   raw.Selesai,
 		Ditolak:                   raw.Ditolak,
 		Terlambat:                 raw.Terlambat,
+		JatuhTempoSegera:          raw.JatuhTempoSegera,
 		RataRataWaktuPenyelesaian: rataRataJam,
 		PersentaseSelesai:         persentase,
 	}, nil
@@ -775,5 +790,100 @@ func FormatIssuesShareText(items []domain.OrderIssue, total int, filter domain.I
 		Truncated: truncated,
 	}
 }
+
+// ---------------- FASE 6: COMMENTS, REASSIGN & DUE SOON SERVICE ----------------
+
+func (s *Service) GetComments(issueID uint64) ([]domain.IssueComment, error) {
+	_, err := s.repo.GetIssueByID(issueID)
+	if err != nil {
+		return nil, errors.New("kendala tidak ditemukan")
+	}
+	return s.repo.GetCommentsByIssueID(issueID)
+}
+
+func (s *Service) CreateComment(issueID, userID uint64, req domain.CreateCommentRequest) (*domain.IssueComment, error) {
+	_, err := s.repo.GetIssueByID(issueID)
+	if err != nil {
+		return nil, errors.New("kendala tidak ditemukan")
+	}
+
+	trimmed := strings.TrimSpace(req.Isi)
+	if trimmed == "" {
+		return nil, errors.New("isi komentar tidak boleh kosong")
+	}
+	if len(trimmed) > 1000 {
+		return nil, errors.New("isi komentar maksimal 1000 karakter")
+	}
+
+	return s.repo.CreateComment(issueID, userID, domain.CommentTypeKomentar, trimmed)
+}
+
+func (s *Service) ReassignIssue(issueID, currentAdminID uint64, req domain.ReassignIssueRequest) (*domain.OrderIssue, error) {
+	// Mulai Database Transaction dengan SELECT ... FOR UPDATE
+	tx, err := s.repo.BeginTx()
+	if err != nil {
+		return nil, fmt.Errorf("gagal memulai transaksi: %w", err)
+	}
+	defer tx.Rollback()
+
+	existing, err := s.repo.GetIssueByIDForUpdate(tx, issueID)
+	if err != nil {
+		return nil, errors.New("kendala tidak ditemukan")
+	}
+
+	// Aturan 3: Tidak boleh pada kendala berstatus selesai/ditolak (422)
+	if existing.Status == domain.StatusSelesai || existing.Status == domain.StatusDitolak {
+		return nil, errors.New("kendala telah berstatus selesai atau ditolak dan tidak dapat dialihkan lagi")
+	}
+
+	// Aturan 3: Petugas tujuan harus user role petugas yang ada
+	targetUser, err := s.repo.GetUserByID(req.AssignedTo)
+	if err != nil || targetUser == nil {
+		return nil, errors.New("petugas tujuan tidak ditemukan")
+	}
+	if targetUser.Role != domain.RolePetugas {
+		return nil, errors.New("kendala hanya dapat dialihkan ke pengguna dengan role petugas")
+	}
+
+	// Dapatkan nama petugas lama
+	namaLama := "Belum Ditugaskan (-)"
+	if existing.AssignedTo != nil {
+		oldUser, err := s.repo.GetUserByID(*existing.AssignedTo)
+		if err == nil && oldUser != nil {
+			namaLama = oldUser.Nama
+		}
+	}
+
+	// Format teks komentar sistem: "Dipindahkan dari X ke Y" plus catatan
+	namaBaru := targetUser.Nama
+	systemText := fmt.Sprintf("Dipindahkan dari %s ke %s", namaLama, namaBaru)
+	catatanTrimmed := strings.TrimSpace(req.Catatan)
+	if catatanTrimmed != "" {
+		systemText += fmt.Sprintf(". Catatan: %s", catatanTrimmed)
+	}
+
+	// Dalam satu transaksi: update assigned_to dan insert komentar tipe 'sistem'
+	if err := s.repo.UpdateIssueAssignedToTx(tx, issueID, req.AssignedTo); err != nil {
+		return nil, fmt.Errorf("gagal memperbarui petugas penanganan: %w", err)
+	}
+
+	if err := s.repo.CreateCommentTx(tx, issueID, currentAdminID, domain.CommentTypeSistem, systemText); err != nil {
+		return nil, fmt.Errorf("gagal mencatat riwayat pemindahan: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("gagal commit transaksi reassign: %w", err)
+	}
+
+	return s.repo.GetIssueByID(issueID)
+}
+
+func (s *Service) GetIssuesDueSoon(hours int) ([]domain.OrderIssue, error) {
+	if hours <= 0 {
+		hours = 24
+	}
+	return s.repo.GetIssuesDueSoon(hours)
+}
+
 
 

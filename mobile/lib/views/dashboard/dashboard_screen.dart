@@ -18,6 +18,7 @@ class DashboardScreen extends ConsumerWidget {
     final trendAsync = ref.watch(dashboardTrendProvider);
     final trendPeriod = ref.watch(dashboardTrendPeriodProvider);
     final issuesAsync = ref.watch(issuesListProvider);
+    final dueSoonAsync = ref.watch(dueSoonIssuesProvider);
 
     return Scaffold(
       body: Container(
@@ -40,6 +41,7 @@ class DashboardScreen extends ConsumerWidget {
               ref.invalidate(dashboardCategoryStatsProvider);
               ref.invalidate(dashboardTrendProvider);
               ref.invalidate(issuesListProvider);
+              ref.invalidate(dueSoonIssuesProvider);
             },
             child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
@@ -49,6 +51,9 @@ class DashboardScreen extends ConsumerWidget {
                 children: [
                   // 1. Header Gradient dengan Sapaan Personal & Perhatian
                   _buildHeader(context, authState.user, summaryAsync),
+
+                  // 1B. Banner Kendala Jatuh Tempo dalam 24 Jam (Dapat di-tap)
+                  _buildDueSoonBanner(context, ref, summaryAsync),
 
                   const SizedBox(height: 16),
 
@@ -66,6 +71,14 @@ class DashboardScreen extends ConsumerWidget {
                         () => ref.invalidate(dashboardSummaryProvider),
                       ),
                     ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // 2B. Daftar "Segera Jatuh Tempo" (Dalam 24 Jam)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: _buildDueSoonListCard(context, dueSoonAsync),
                   ),
 
                   const SizedBox(height: 24),
@@ -821,6 +834,200 @@ class DashboardScreen extends ConsumerWidget {
             },
             loading: () => const LinearProgressIndicator(),
             error: (err, _) => Text('Gagal: $err', style: const TextStyle(color: AppColors.statusRejected)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDueSoonBanner(BuildContext context, WidgetRef ref, AsyncValue<DashboardSummary> summaryAsync) {
+    return summaryAsync.maybeWhen(
+      data: (summary) {
+        if (summary.jatuhTempoSegera <= 0) return const SizedBox.shrink();
+        return Container(
+          margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFFFFFBEB), Color(0xFFFEF3C7)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFFDE68A)),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFD97706).withValues(alpha: 0.1),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () {
+                // Navigasi ke kendala terfilter
+                ref.read(issueFilterProvider.notifier).reset();
+                context.go('/issues');
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF59E0B),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.timer_outlined, color: Colors.white, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${summary.jatuhTempoSegera} kendala jatuh tempo dalam 24 jam',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF92400E),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          const Text(
+                            'Ketuk untuk melihat seluruh kendala yang mendekati batas waktu SLA',
+                            style: TextStyle(fontSize: 11, color: Color(0xFFB45309)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Color(0xFFB45309)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+      orElse: () => const SizedBox.shrink(),
+    );
+  }
+
+  Widget _buildDueSoonListCard(BuildContext context, AsyncValue<List<OrderIssue>> dueSoonAsync) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.cardBorder.withValues(alpha: 0.8)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0F172A).withValues(alpha: 0.03),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.hourglass_top_rounded, color: AppColors.accentAmber, size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    'Segera Jatuh Tempo (24 Jam)',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textMain),
+                  ),
+                ],
+              ),
+              TextButton(
+                onPressed: () => context.go('/issues'),
+                child: const Text('Buka Daftar', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          dueSoonAsync.when(
+            data: (issues) {
+              if (issues.isEmpty) {
+                return Container(
+                  padding: const EdgeInsets.all(16),
+                  alignment: Alignment.center,
+                  child: const Text(
+                    'Tidak ada kendala yang akan jatuh tempo dalam 24 jam ke depan.',
+                    style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                    textAlign: TextAlign.center,
+                  ),
+                );
+              }
+
+              return Column(
+                children: issues.take(4).map((issue) {
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFFBEB),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFFDE68A)),
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: ListTile(
+                        dense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                        leading: CircleAvatar(
+                          backgroundColor: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                          radius: 16,
+                          child: const Icon(Icons.schedule_rounded, color: Color(0xFFD97706), size: 18),
+                        ),
+                        title: Text(
+                          issue.judul,
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textMain),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text(
+                          '${issue.kodeKendala} • Petugas: ${issue.assignedNama}',
+                          style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                        ),
+                        trailing: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFD97706).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            IconUtil.getStatusLabel(issue.status),
+                            style: const TextStyle(
+                              color: Color(0xFFB45309),
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        onTap: () => context.push('/issues/${issue.id}'),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+            loading: () => const Center(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: CircularProgressIndicator(),
+              ),
+            ),
+            error: (err, _) => Center(
+              child: Text('Gagal: $err', style: const TextStyle(color: AppColors.statusRejected)),
+            ),
           ),
         ],
       ),

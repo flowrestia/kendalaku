@@ -32,7 +32,9 @@ func setupTestRouter(t *testing.T) *gin.Engine {
 	}
 
 	migrationsDir := filepath.Join("..", "migrations")
-	_ = database.RunMigrations(cfg.MigrationDSN(), migrationsDir, cfg.DBName)
+	if migErr := database.RunMigrations(cfg.MigrationDSN(), migrationsDir, cfg.DBName); migErr != nil {
+		t.Logf("[MIGRATION WARNING] %v", migErr)
+	}
 	_ = database.SeedDatabase(db)
 
 	tokenMaker := jwt.NewTokenMaker(cfg.JWTSecret)
@@ -48,7 +50,9 @@ func setupTestRouter(t *testing.T) *gin.Engine {
 		protected.Use(middleware.AuthMiddleware(tokenMaker))
 		{
 			protected.GET("/issues", h.ListIssues)
+			protected.POST("/issues", h.CreateIssue)
 			protected.GET("/issues/:id", h.GetIssueDetail)
+			protected.PUT("/issues/:id", h.UpdateIssue)
 			protected.POST("/issues/:id/transitions", h.TransitionStatus)
 			protected.GET("/share/issues", h.ShareText)
 
@@ -59,6 +63,13 @@ func setupTestRouter(t *testing.T) *gin.Engine {
 			protected.GET("/reports/recap", h.GetReportRecap)
 			protected.GET("/reports/export.csv", h.ExportReportCSV)
 			protected.GET("/activities", h.GetActivityLogs)
+			// Fase 6
+			protected.GET("/issues/:id/comments", h.GetComments)
+			protected.POST("/issues/:id/comments", h.CreateComment)
+			protected.PATCH("/issues/:id/assign", middleware.RequireRole(domain.RoleAdmin), h.ReassignIssue)
+			protected.PATCH("/issues/:id/archive", middleware.RequireRole(domain.RoleAdmin), h.ArchiveIssue)
+			protected.DELETE("/issues/:id", middleware.RequireRole(domain.RoleAdmin), h.DeleteIssue)
+			protected.GET("/dashboard/due-soon", h.GetIssuesDueSoon)
 		}
 	}
 
