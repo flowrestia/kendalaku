@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/error_mapper.dart';
 import '../../core/utils/icon_util.dart';
 import '../../data/models/models.dart';
 import '../../providers/app_providers.dart';
+import '../widgets/error_view.dart';
 
 class ManageCategoriesScreen extends ConsumerStatefulWidget {
   const ManageCategoriesScreen({super.key});
@@ -118,13 +120,15 @@ class _ManageCategoriesScreenState extends ConsumerState<ManageCategoriesScreen>
                             child: Container(
                               padding: const EdgeInsets.all(6),
                               decoration: BoxDecoration(
-                                color: isSel ? AppColors.primaryContainer : AppColors.backgroundLight,
+                                color: isSel
+                                    ? AppColors.primaryContainer
+                                    : (AppColors.isDark(context) ? const Color(0xFF131D31) : AppColors.backgroundLight),
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
-                                  color: isSel ? AppColors.primary : AppColors.cardBorder,
+                                  color: isSel ? AppColors.primary : AppColors.getCardBorder(context),
                                 ),
                               ),
-                              child: Icon(iconData, size: 20, color: isSel ? AppColors.primary : AppColors.textMain),
+                              child: Icon(iconData, size: 20, color: isSel ? AppColors.primary : AppColors.getTextMain(context)),
                             ),
                           );
                         }).toList(),
@@ -135,7 +139,7 @@ class _ManageCategoriesScreenState extends ConsumerState<ManageCategoriesScreen>
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Kategori Aktif', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                          Text('Kategori Aktif', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.getTextMain(context))),
                           Switch(
                             value: aktif,
                             activeThumbColor: AppColors.statusResolved,
@@ -193,7 +197,7 @@ class _ManageCategoriesScreenState extends ConsumerState<ManageCategoriesScreen>
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text('Gagal: $e'),
+                              content: Text(ErrorMapper.getMessage(e)),
                               backgroundColor: AppColors.statusRejected,
                             ),
                           );
@@ -247,7 +251,7 @@ class _ManageCategoriesScreenState extends ConsumerState<ManageCategoriesScreen>
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text(e.toString().replaceAll('Exception: ', '')),
+                        content: Text(ErrorMapper.getMessage(e)),
                         backgroundColor: AppColors.statusRejected,
                         duration: const Duration(seconds: 4),
                       ),
@@ -267,8 +271,10 @@ class _ManageCategoriesScreenState extends ConsumerState<ManageCategoriesScreen>
   Widget build(BuildContext context) {
     final categoriesAsync = ref.watch(categoriesProvider);
 
+    final isDark = AppColors.isDark(context);
+
     return Scaffold(
-      backgroundColor: AppColors.backgroundLight,
+      backgroundColor: AppColors.getBackgroundColor(context),
       appBar: AppBar(
         title: const Text('Kelola Kategori Kendala'),
         actions: [
@@ -311,38 +317,52 @@ class _ManageCategoriesScreenState extends ConsumerState<ManageCategoriesScreen>
               return Container(
                 margin: const EdgeInsets.only(bottom: 10),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.getCardColor(context),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.cardBorder),
+                  border: Border.all(color: AppColors.getCardBorder(context)),
                 ),
                 child: ListTile(
                   leading: Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.12),
+                      color: color.withValues(alpha: isDark ? 0.2 : 0.12),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(icon, color: color, size: 22),
                   ),
                   title: Row(
                     children: [
-                      Text(c.nama, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      Text(
+                        c.nama,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: AppColors.getTextMain(context),
+                        ),
+                      ),
                       const SizedBox(width: 8),
                       if (!c.aktif)
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: Colors.grey.shade200,
+                            color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: const Text(
+                          child: Text(
                             'NONAKTIF',
-                            style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.grey),
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white70 : Colors.grey,
+                            ),
                           ),
                         ),
                     ],
                   ),
-                  subtitle: Text('SLA: ${c.tenggatJam} Jam • Warna: ${c.warnaHex}'),
+                  subtitle: Text(
+                    'SLA: ${c.tenggatJam} Jam • Warna: ${c.warnaHex}',
+                    style: TextStyle(color: AppColors.getTextMuted(context)),
+                  ),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -364,20 +384,9 @@ class _ManageCategoriesScreenState extends ConsumerState<ManageCategoriesScreen>
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.error_outline_rounded, size: 48, color: AppColors.statusRejected),
-              const SizedBox(height: 12),
-              Text('Gagal memuat kategori: $err', style: const TextStyle(color: AppColors.statusRejected)),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => ref.invalidate(categoriesProvider),
-                child: const Text('Coba Lagi'),
-              ),
-            ],
-          ),
+        error: (err, _) => ErrorView.fromException(
+          error: err,
+          onRetry: () => ref.invalidate(categoriesProvider),
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(

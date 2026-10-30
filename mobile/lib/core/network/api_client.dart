@@ -1,12 +1,17 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/config/api_config.dart';
+import '../utils/error_mapper.dart';
 
 class ApiClient {
   late final Dio dio;
 
   static const String tokenKey = 'kendalaku_auth_token';
   static const String userKey = 'kendalaku_user_data';
+
+  // Callback global saat sesi berakhir (401) untuk logout otomatis
+  static VoidCallback? onUnauthorized;
 
   ApiClient() {
     dio = Dio(
@@ -32,29 +37,20 @@ class ApiClient {
           return handler.next(options);
         },
         onError: (DioException e, handler) {
-          // Tangani format error standar backend KendalaKu
-          String errorMessage = 'Terjadi kesalahan pada sistem';
-          if (e.response?.data != null && e.response?.data is Map) {
-            final data = e.response!.data as Map;
-            if (data['error'] != null && data['error'] is Map) {
-              final errMap = data['error'] as Map;
-              if (errMap['message'] != null) {
-                errorMessage = errMap['message'].toString();
-              }
-            }
-          } else if (e.type == DioExceptionType.connectionTimeout ||
-              e.type == DioExceptionType.receiveTimeout) {
-            errorMessage = 'Batas waktu koneksi habis. Silakan periksa jaringan';
-          } else if (e.type == DioExceptionType.connectionError) {
-            errorMessage = 'Tidak dapat terhubung ke server backend KendalaKu';
+          final appError = ErrorMapper.map(e);
+
+          // 401: Sesi kedaluwarsa, hapus auth dan picu logout otomatis
+          if (appError.type == ErrorType.unauthorized) {
+            clearAuth();
+            onUnauthorized?.call();
           }
 
           final customException = DioException(
             requestOptions: e.requestOptions,
             response: e.response,
             type: e.type,
-            error: errorMessage,
-            message: errorMessage,
+            error: appError.message,
+            message: appError.message,
           );
 
           return handler.next(customException);

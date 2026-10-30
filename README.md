@@ -38,6 +38,7 @@ Data seeder menyediakan 3 akun awal untuk pengujian:
    Isi file `backend/.env`:
    ```env
    APP_ENV=development
+   GIN_MODE=release
    APP_PORT=8080
 
    # Database Configuration (XAMPP MariaDB)

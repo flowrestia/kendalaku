@@ -12,7 +12,6 @@ import (
 	"github.com/flowrestia/kendalaku/backend/internal/config"
 	"github.com/flowrestia/kendalaku/backend/internal/domain"
 	"github.com/flowrestia/kendalaku/backend/internal/handler"
-	"github.com/flowrestia/kendalaku/backend/internal/middleware"
 	"github.com/flowrestia/kendalaku/backend/internal/repository/mysql"
 	"github.com/flowrestia/kendalaku/backend/internal/service"
 	"github.com/flowrestia/kendalaku/backend/pkg/database"
@@ -42,40 +41,7 @@ func setupTestRouter(t *testing.T) *gin.Engine {
 	svc := service.NewService(repo, tokenMaker, cfg.JWTExpiryHours)
 	h := handler.NewHandler(svc)
 
-	r := gin.New()
-	api := r.Group("/api/v1")
-	{
-		api.POST("/auth/login", h.Login)
-		protected := api.Group("")
-		protected.Use(middleware.AuthMiddleware(tokenMaker))
-		{
-			protected.GET("/issues", h.ListIssues)
-			protected.POST("/issues", h.CreateIssue)
-			protected.GET("/issues/:id", h.GetIssueDetail)
-			protected.PUT("/issues/:id", h.UpdateIssue)
-			protected.POST("/issues/:id/transitions", h.TransitionStatus)
-			protected.GET("/share/issues", h.ShareText)
-			protected.PUT("/auth/password", h.ChangePassword)
-
-
-			// Fase 3
-			protected.GET("/dashboard/summary", h.GetDashboardSummary)
-			protected.GET("/dashboard/by-category", h.GetDashboardByCategory)
-			protected.GET("/dashboard/trend", h.GetDashboardTrend)
-			protected.GET("/reports/recap", h.GetReportRecap)
-			protected.GET("/reports/export.csv", h.ExportReportCSV)
-			protected.GET("/activities", h.GetActivityLogs)
-			// Fase 6
-			protected.GET("/issues/:id/comments", h.GetComments)
-			protected.POST("/issues/:id/comments", h.CreateComment)
-			protected.PATCH("/issues/:id/assign", middleware.RequireRole(domain.RoleAdmin), h.ReassignIssue)
-			protected.PATCH("/issues/:id/archive", middleware.RequireRole(domain.RoleAdmin), h.ArchiveIssue)
-			protected.DELETE("/issues/:id", middleware.RequireRole(domain.RoleAdmin), h.DeleteIssue)
-			protected.GET("/dashboard/due-soon", h.GetIssuesDueSoon)
-		}
-	}
-
-	return r
+	return handler.SetupRouter(h, tokenMaker)
 }
 
 func TestLiveEndpoints(t *testing.T) {

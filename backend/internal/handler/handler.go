@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -36,7 +37,7 @@ func (h *Handler) getClaims(c *gin.Context) *jwt.Claims {
 func (h *Handler) Login(c *gin.Context) {
 	var req domain.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "Email dan password wajib diisi dengan benar: "+err.Error())
+		response.BadRequest(c, response.FormatValidationError(err))
 		return
 	}
 
@@ -68,7 +69,8 @@ func (h *Handler) GetMe(c *gin.Context) {
 func (h *Handler) GetUsers(c *gin.Context) {
 	users, err := h.svc.GetAllUsers()
 	if err != nil {
-		response.InternalServerError(c, "Gagal mengambil daftar pengguna: "+err.Error())
+		log.Printf("[ERROR] GetUsers: %v", err)
+		response.InternalServerError(c, "Gagal mengambil daftar pengguna")
 		return
 	}
 	response.Success(c, http.StatusOK, users)
@@ -83,7 +85,7 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 
 	var req domain.ChangePasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", "Data kata sandi tidak valid: "+err.Error())
+		response.Error(c, http.StatusUnprocessableEntity, "VALIDATION_ERROR", response.FormatValidationError(err))
 		return
 	}
 
@@ -99,12 +101,12 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 
 // ---------------- PROBLEM CATEGORY HANDLER ----------------
 
-
 func (h *Handler) GetCategories(c *gin.Context) {
 	onlyActive := c.Query("aktif") == "true"
 	categories, err := h.svc.GetAllCategories(onlyActive)
 	if err != nil {
-		response.InternalServerError(c, "Gagal mengambil kategori: "+err.Error())
+		log.Printf("[ERROR] GetCategories: %v", err)
+		response.InternalServerError(c, "Gagal mengambil daftar kategori")
 		return
 	}
 	response.Success(c, http.StatusOK, categories)
@@ -113,13 +115,14 @@ func (h *Handler) GetCategories(c *gin.Context) {
 func (h *Handler) CreateCategory(c *gin.Context) {
 	var req domain.CategoryRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "Data kategori tidak valid: "+err.Error())
+		response.BadRequest(c, response.FormatValidationError(err))
 		return
 	}
 
 	cat, err := h.svc.CreateCategory(req)
 	if err != nil {
-		response.InternalServerError(c, "Gagal menambah kategori: "+err.Error())
+		log.Printf("[ERROR] CreateCategory: %v", err)
+		response.InternalServerError(c, "Gagal menambah kategori")
 		return
 	}
 
@@ -135,7 +138,7 @@ func (h *Handler) UpdateCategory(c *gin.Context) {
 
 	var req domain.CategoryRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "Data kategori tidak valid: "+err.Error())
+		response.BadRequest(c, response.FormatValidationError(err))
 		return
 	}
 
@@ -168,7 +171,8 @@ func (h *Handler) DeleteCategory(c *gin.Context) {
 func (h *Handler) GetOrders(c *gin.Context) {
 	orders, err := h.svc.GetAllOrders()
 	if err != nil {
-		response.InternalServerError(c, "Gagal mengambil daftar pesanan: "+err.Error())
+		log.Printf("[ERROR] GetOrders: %v", err)
+		response.InternalServerError(c, "Gagal mengambil daftar pesanan")
 		return
 	}
 	response.Success(c, http.StatusOK, orders)
@@ -229,7 +233,8 @@ func (h *Handler) ListIssues(c *gin.Context) {
 
 	result, err := h.svc.ListIssues(filter)
 	if err != nil {
-		response.InternalServerError(c, "Gagal mengambil daftar kendala: "+err.Error())
+		log.Printf("[ERROR] ListIssues: %v", err)
+		response.InternalServerError(c, "Gagal mengambil daftar kendala")
 		return
 	}
 
@@ -291,7 +296,8 @@ func (h *Handler) ShareText(c *gin.Context) {
 
 	result, err := h.svc.GenerateShareText(filter, includeCustomer)
 	if err != nil {
-		response.InternalServerError(c, "Gagal menghasilkan teks WhatsApp: "+err.Error())
+		log.Printf("[ERROR] ShareText: %v", err)
+		response.InternalServerError(c, "Gagal menghasilkan teks WhatsApp")
 		return
 	}
 
@@ -307,7 +313,7 @@ func (h *Handler) CreateIssue(c *gin.Context) {
 
 	var req domain.CreateIssueRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "Form input kendala tidak valid: "+err.Error())
+		response.BadRequest(c, response.FormatValidationError(err))
 		return
 	}
 
@@ -351,7 +357,7 @@ func (h *Handler) UpdateIssue(c *gin.Context) {
 
 	var req domain.UpdateIssueRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "Data update kendala tidak valid: "+err.Error())
+		response.BadRequest(c, response.FormatValidationError(err))
 		return
 	}
 
@@ -432,7 +438,7 @@ func (h *Handler) TransitionStatus(c *gin.Context) {
 
 	var req domain.TransitionStatusRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "Input transisi status tidak valid: "+err.Error())
+		response.BadRequest(c, response.FormatValidationError(err))
 		return
 	}
 
@@ -499,7 +505,7 @@ func (h *Handler) CreateComment(c *gin.Context) {
 
 	var req domain.CreateCommentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "Isi komentar wajib diisi (maksimal 1000 karakter): "+err.Error())
+		response.BadRequest(c, response.FormatValidationError(err))
 		return
 	}
 
@@ -527,7 +533,7 @@ func (h *Handler) ReassignIssue(c *gin.Context) {
 
 	var req domain.ReassignIssueRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "Data penugasan tidak valid: "+err.Error())
+		response.BadRequest(c, response.FormatValidationError(err))
 		return
 	}
 
@@ -544,7 +550,8 @@ func (h *Handler) GetIssuesDueSoon(c *gin.Context) {
 	hours, _ := strconv.Atoi(c.DefaultQuery("hours", "24"))
 	issues, err := h.svc.GetIssuesDueSoon(hours)
 	if err != nil {
-		response.InternalServerError(c, "Gagal mengambil daftar kendala jatuh tempo: "+err.Error())
+		log.Printf("[ERROR] GetIssuesDueSoon: %v", err)
+		response.InternalServerError(c, "Gagal mengambil daftar kendala jatuh tempo")
 		return
 	}
 
@@ -556,7 +563,8 @@ func (h *Handler) GetIssuesDueSoon(c *gin.Context) {
 func (h *Handler) GetDashboardSummary(c *gin.Context) {
 	summary, err := h.svc.GetDashboardSummary()
 	if err != nil {
-		response.InternalServerError(c, err.Error())
+		log.Printf("[ERROR] GetDashboardSummary: %v", err)
+		response.InternalServerError(c, "Gagal mengambil ringkasan dasbor")
 		return
 	}
 	response.Success(c, http.StatusOK, summary)
@@ -565,7 +573,8 @@ func (h *Handler) GetDashboardSummary(c *gin.Context) {
 func (h *Handler) GetDashboardByCategory(c *gin.Context) {
 	stats, err := h.svc.GetCategoryStats()
 	if err != nil {
-		response.InternalServerError(c, err.Error())
+		log.Printf("[ERROR] GetDashboardByCategory: %v", err)
+		response.InternalServerError(c, "Gagal mengambil statistik kategori")
 		return
 	}
 	response.Success(c, http.StatusOK, stats)
@@ -587,7 +596,8 @@ func (h *Handler) GetReportRecap(c *gin.Context) {
 
 	recap, err := h.svc.GetReportRecap(from, to)
 	if err != nil {
-		response.InternalServerError(c, err.Error())
+		log.Printf("[ERROR] GetReportRecap: %v", err)
+		response.InternalServerError(c, "Gagal mengambil rekap laporan")
 		return
 	}
 	response.Success(c, http.StatusOK, recap)
@@ -599,7 +609,8 @@ func (h *Handler) ExportReportCSV(c *gin.Context) {
 
 	buf, err := h.svc.ExportReportCSV(from, to)
 	if err != nil {
-		response.InternalServerError(c, "Gagal membuat laporan CSV: "+err.Error())
+		log.Printf("[ERROR] ExportReportCSV: %v", err)
+		response.InternalServerError(c, "Gagal membuat laporan CSV")
 		return
 	}
 
@@ -620,9 +631,9 @@ func (h *Handler) GetActivityLogs(c *gin.Context) {
 
 	logs, err := h.svc.GetActivityLogs(limit)
 	if err != nil {
-		response.InternalServerError(c, err.Error())
+		log.Printf("[ERROR] GetActivityLogs: %v", err)
+		response.InternalServerError(c, "Gagal mengambil log aktivitas")
 		return
 	}
 	response.Success(c, http.StatusOK, logs)
 }
-

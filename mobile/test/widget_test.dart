@@ -1196,6 +1196,116 @@ void main() {
       expect(find.text('Konfirmasi Kata Sandi Baru *'), findsOneWidget);
       expect(find.text('Simpan Kata Sandi'), findsOneWidget);
     });
+
+    testWidgets('Mode Gelap Konsisten: SettingsScreen Scaffold luminance rendah', (tester) async {
+      tester.view.physicalSize = const Size(800, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authProvider.overrideWith(() => _MockAuthNotifier(
+                  User(id: 1, nama: 'Administrator', email: 'admin@kendalaku.com', role: 'admin'),
+                )),
+            themeModeProvider.overrideWith(() => ThemeModeNotifier()),
+          ],
+          child: MaterialApp(
+            theme: ThemeData.dark(),
+            home: const SettingsScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Cek Scaffold SettingsScreen
+      final settingsScaffold = tester.widget<Scaffold>(find.byType(Scaffold));
+      expect(settingsScaffold.backgroundColor, isNotNull);
+      // Luminance scaffold harus rendah (gelap < 0.15)
+      expect(settingsScaffold.backgroundColor!.computeLuminance(), lessThan(0.15));
+    });
+
+    testWidgets('Mode Gelap Konsisten: IssuesListScreen Scaffold, kartu kendala & search bar gelap', (tester) async {
+      tester.view.physicalSize = const Size(800, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final testIssue = OrderIssue(
+        id: 101,
+        kodeKendala: 'KDL-202610-0101',
+        orderId: 1,
+        kodePesanan: 'INV-202610-001',
+        namaPelanggan: 'Budi Santoso',
+        produkPesanan: 'Kopi Arabika 250g',
+        categoryId: 1,
+        categoryNama: 'Kemasan Rusak',
+        categoryWarnaHex: '#F59E0B',
+        categoryIkon: 'inventory_2_outlined',
+        judul: 'Kemasan sobek saat pengiriman',
+        deskripsi: 'Barang diterima dalam kondisi bocor halus',
+        status: 'sedang_diproses',
+        prioritas: 'tinggi',
+        tenggatAt: DateTime.now().add(const Duration(hours: 12)).toIso8601String(),
+        createdAt: DateTime.now().subtract(const Duration(hours: 2)).toIso8601String(),
+        updatedAt: DateTime.now().toIso8601String(),
+        createdBy: 1,
+        createdByNama: 'Admin',
+        assignedNama: 'Petugas Budi',
+        isArchived: false,
+        isOverdue: false,
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authProvider.overrideWith(() => _MockAuthNotifier(
+                  User(id: 1, nama: 'Administrator', email: 'admin@kendalaku.com', role: 'admin'),
+                )),
+            issuesListProvider.overrideWith((ref) async => {
+                  'items': [testIssue],
+                  'meta': {'total': 1, 'page': 1, 'limit': 10, 'total_pages': 1},
+                }),
+            categoriesProvider.overrideWith((ref) async => [
+                  ProblemCategory(
+                    id: 1,
+                    nama: 'Kemasan Rusak',
+                    tenggatJam: 24,
+                    warnaHex: '#F59E0B',
+                    ikon: 'inventory_2_outlined',
+                    aktif: true,
+                  ),
+                ]),
+          ],
+          child: MaterialApp(
+            theme: ThemeData.dark(),
+            home: const IssuesListScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Cek Scaffold IssuesListScreen memiliki background gelap (luminance < 0.15)
+      final issuesScaffold = tester.widget<Scaffold>(find.byType(Scaffold));
+      expect(issuesScaffold.backgroundColor, isNotNull);
+      expect(issuesScaffold.backgroundColor!.computeLuminance(), lessThan(0.15));
+
+      // Cek kolom pencarian di IssuesListScreen terisi dengan warna gelap
+      final searchTextField = tester.widget<TextField>(find.byType(TextField));
+      expect(searchTextField.decoration?.filled, isTrue);
+      expect(searchTextField.decoration?.fillColor, isNotNull);
+      expect(searchTextField.decoration!.fillColor!.computeLuminance(), lessThan(0.15));
+      expect(searchTextField.decoration?.hintStyle?.color, isNotNull);
+
+      // Cek kartu kendala ditampilkan
+      expect(find.text('KDL-202610-0101'), findsOneWidget);
+      expect(find.text('Kemasan sobek saat pengiriman'), findsOneWidget);
+    });
   });
 }
 

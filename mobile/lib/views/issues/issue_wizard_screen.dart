@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/error_mapper.dart';
 import '../../core/utils/icon_util.dart';
 import '../../data/models/models.dart';
 import '../../providers/app_providers.dart';
@@ -68,7 +69,7 @@ class _IssueWizardScreenState extends ConsumerState<IssueWizardScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Gagal membuat kendala: $e'),
+            content: Text(ErrorMapper.getMessage(e)),
             backgroundColor: AppColors.statusRejected,
           ),
         );
@@ -84,7 +85,10 @@ class _IssueWizardScreenState extends ConsumerState<IssueWizardScreen> {
     final categoriesAsync = ref.watch(categoriesProvider);
     final usersAsync = ref.watch(usersListProvider);
 
+    final isDark = AppColors.isDark(context);
+
     return Scaffold(
+      backgroundColor: AppColors.getBackgroundColor(context),
       appBar: AppBar(
         title: const Text('Lapor Kendala Baru'),
       ),
@@ -163,22 +167,34 @@ class _IssueWizardScreenState extends ConsumerState<IssueWizardScreen> {
             content: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Langkah 1: Pilih Pesanan Terkait',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.getTextMain(context)),
                 ),
                 const SizedBox(height: 6),
-                const Text(
+                Text(
                   'Cari invoice pesanan simulasi pelanggan yang mengalami kendala operasional.',
-                  style: TextStyle(color: AppColors.textMuted, fontSize: 13),
+                  style: TextStyle(color: AppColors.getTextMuted(context), fontSize: 13),
                 ),
                 const SizedBox(height: 16),
 
                 // Search Box
                 TextField(
-                  decoration: const InputDecoration(
+                  style: TextStyle(color: AppColors.getTextMain(context)),
+                  decoration: InputDecoration(
                     hintText: 'Cari invoice atau nama pelanggan...',
-                    prefixIcon: Icon(Icons.search_rounded),
+                    hintStyle: TextStyle(color: isDark ? Colors.white54 : AppColors.textMuted),
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    filled: true,
+                    fillColor: isDark ? const Color(0xFF131D31) : Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AppColors.getCardBorder(context)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AppColors.getCardBorder(context)),
+                    ),
                   ),
                   onChanged: (val) => setState(() => _orderSearchQuery = val.toLowerCase()),
                 ),
@@ -193,9 +209,9 @@ class _IssueWizardScreenState extends ConsumerState<IssueWizardScreen> {
                     }).toList();
 
                     if (filtered.isEmpty) {
-                      return const Padding(
-                        padding: EdgeInsets.all(24),
-                        child: Center(child: Text('Tidak ada pesanan yang sesuai')),
+                      return Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Center(child: Text('Tidak ada pesanan yang sesuai', style: TextStyle(color: AppColors.getTextMuted(context)))),
                       );
                     }
 
@@ -210,10 +226,12 @@ class _IssueWizardScreenState extends ConsumerState<IssueWizardScreen> {
                           return Container(
                             margin: const EdgeInsets.only(bottom: 8),
                             decoration: BoxDecoration(
-                              color: isSelected ? AppColors.primaryContainer : Colors.white,
+                              color: isSelected
+                                  ? (isDark ? const Color(0xFF1E3A8A).withValues(alpha: 0.5) : AppColors.primaryContainer)
+                                  : AppColors.getCardColor(context),
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: isSelected ? AppColors.primary : AppColors.cardBorder,
+                                color: isSelected ? AppColors.primary : AppColors.getCardBorder(context),
                                 width: isSelected ? 1.5 : 1,
                               ),
                             ),
@@ -225,10 +243,13 @@ class _IssueWizardScreenState extends ConsumerState<IssueWizardScreen> {
                                   o.kodePesanan,
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    color: isSelected ? AppColors.primary : AppColors.textMain,
+                                    color: isSelected ? AppColors.primary : AppColors.getTextMain(context),
                                   ),
                                 ),
-                                subtitle: Text('${o.namaPelanggan} • ${o.produk} (${o.jumlah} item)'),
+                                subtitle: Text(
+                                  '${o.namaPelanggan} • ${o.produk} (${o.jumlah} item)',
+                                  style: TextStyle(color: AppColors.getTextMuted(context)),
+                                ),
                                 trailing: isSelected
                                     ? const Icon(Icons.check_circle_rounded, color: AppColors.primary)
                                     : null,
@@ -241,7 +262,7 @@ class _IssueWizardScreenState extends ConsumerState<IssueWizardScreen> {
                     );
                   },
                   loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (err, _) => Text('Error: $err'),
+                  error: (err, _) => Text(ErrorMapper.getMessage(err), style: const TextStyle(color: AppColors.statusRejected)),
                 ),
               ],
             ),
@@ -255,14 +276,14 @@ class _IssueWizardScreenState extends ConsumerState<IssueWizardScreen> {
             content: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Langkah 2: Pilih Kategori Masalah & Deskripsi',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.getTextMain(context)),
                 ),
                 const SizedBox(height: 12),
 
                 // Category Chips Selection
-                const Text('Kategori Masalah *', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                Text('Kategori Masalah *', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.getTextMain(context))),
                 const SizedBox(height: 8),
                 categoriesAsync.when(
                   data: (cats) => Wrap(
@@ -278,10 +299,10 @@ class _IssueWizardScreenState extends ConsumerState<IssueWizardScreen> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                           decoration: BoxDecoration(
-                            color: isSelected ? catColor : catColor.withValues(alpha: 0.08),
+                            color: isSelected ? catColor : catColor.withValues(alpha: isDark ? 0.2 : 0.08),
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(
-                              color: isSelected ? catColor : catColor.withValues(alpha: 0.25),
+                              color: isSelected ? catColor : catColor.withValues(alpha: isDark ? 0.4 : 0.25),
                               width: 1.5,
                             ),
                           ),
@@ -291,7 +312,7 @@ class _IssueWizardScreenState extends ConsumerState<IssueWizardScreen> {
                               Icon(
                                 IconUtil.getIcon(cat.ikon),
                                 size: 14,
-                                color: isSelected ? Colors.white : catColor,
+                                color: isSelected ? Colors.white : (isDark ? catColor : catColor),
                               ),
                               const SizedBox(width: 6),
                               Text(
@@ -299,7 +320,7 @@ class _IssueWizardScreenState extends ConsumerState<IssueWizardScreen> {
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
-                                  color: isSelected ? Colors.white : catColor,
+                                  color: isSelected ? Colors.white : (isDark ? Colors.white : catColor),
                                 ),
                               ),
                             ],
@@ -318,8 +339,9 @@ class _IssueWizardScreenState extends ConsumerState<IssueWizardScreen> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppColors.primaryContainer,
+                      color: isDark ? const Color(0xFF1E3A8A).withValues(alpha: 0.3) : AppColors.primaryContainer,
                       borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       children: [
@@ -327,10 +349,10 @@ class _IssueWizardScreenState extends ConsumerState<IssueWizardScreen> {
                         const SizedBox(width: 8),
                         Text(
                           'SLA Standar Kategori: ${_selectedCategory!.tenggatJam} jam penyelesaian',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
-                            color: AppColors.primary,
+                            color: isDark ? const Color(0xFF93C5FD) : AppColors.primary,
                           ),
                         ),
                       ],
@@ -342,6 +364,7 @@ class _IssueWizardScreenState extends ConsumerState<IssueWizardScreen> {
                 // Judul
                 TextFormField(
                   controller: _judulController,
+                  style: TextStyle(color: AppColors.getTextMain(context)),
                   decoration: const InputDecoration(
                     labelText: 'Judul Ringkas Kendala *',
                     hintText: 'Misal: Barang pecah saat packing gudang',
@@ -353,6 +376,7 @@ class _IssueWizardScreenState extends ConsumerState<IssueWizardScreen> {
                 TextFormField(
                   controller: _deskripsiController,
                   maxLines: 3,
+                  style: TextStyle(color: AppColors.getTextMain(context)),
                   decoration: const InputDecoration(
                     labelText: 'Rincian & Deskripsi Lengkap *',
                     hintText: 'Jelaskan kondisi fisik barang, lokasi gudang, atau kronologi kendala...',
@@ -369,14 +393,14 @@ class _IssueWizardScreenState extends ConsumerState<IssueWizardScreen> {
             content: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Langkah 3: Atur Prioritas & Penugasan Petugas',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.getTextMain(context)),
                 ),
                 const SizedBox(height: 16),
 
                 // Prioritas
-                const Text('Tingkat Prioritas', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                Text('Tingkat Prioritas', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.getTextMain(context))),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
@@ -387,9 +411,10 @@ class _IssueWizardScreenState extends ConsumerState<IssueWizardScreen> {
                     return ChoiceChip(
                       label: Text(IconUtil.getPriorityLabel(pr)),
                       selected: isSelected,
-                      selectedColor: color.withValues(alpha: 0.2),
+                      selectedColor: color.withValues(alpha: isDark ? 0.35 : 0.2),
+                      backgroundColor: AppColors.getCardColor(context),
                       labelStyle: TextStyle(
-                        color: isSelected ? color : AppColors.textMain,
+                        color: isSelected ? (isDark ? Colors.white : color) : AppColors.getTextMain(context),
                         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                       ),
                       onSelected: (val) {
@@ -401,17 +426,24 @@ class _IssueWizardScreenState extends ConsumerState<IssueWizardScreen> {
                 const SizedBox(height: 16),
 
                 // Petugas Penanggung Jawab
-                const Text('Tugaskan ke Petugas (Opsional)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                Text('Tugaskan ke Petugas (Opsional)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.getTextMain(context))),
                 const SizedBox(height: 8),
                 usersAsync.when(
                   data: (users) => DropdownButtonFormField<User>(
                     initialValue: _selectedPetugas,
-                    decoration: const InputDecoration(hintText: 'Pilih Petugas Lapangan'),
+                    dropdownColor: AppColors.getCardColor(context),
+                    decoration: InputDecoration(
+                      hintText: 'Pilih Petugas Lapangan',
+                      hintStyle: TextStyle(color: isDark ? Colors.white54 : AppColors.textMuted),
+                    ),
                     items: [
-                      const DropdownMenuItem<User>(value: null, child: Text('Belum Ditugaskan (-)')),
+                      DropdownMenuItem<User>(
+                        value: null,
+                        child: Text('Belum Ditugaskan (-)', style: TextStyle(color: AppColors.getTextMain(context))),
+                      ),
                       ...users.map((u) => DropdownMenuItem<User>(
                         value: u,
-                        child: Text('${u.nama} (${u.role})'),
+                        child: Text('${u.nama} (${u.role})', style: TextStyle(color: AppColors.getTextMain(context))),
                       )),
                     ],
                     onChanged: (val) => setState(() => _selectedPetugas = val),
@@ -425,19 +457,31 @@ class _IssueWizardScreenState extends ConsumerState<IssueWizardScreen> {
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
+                    color: isDark ? const Color(0xFF131D31) : Colors.grey.shade50,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.cardBorder),
+                    border: Border.all(color: AppColors.getCardBorder(context)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Ringkasan Laporan:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      Text('Ringkasan Laporan:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.getTextMain(context))),
                       const SizedBox(height: 6),
-                      Text('• Pesanan: ${_selectedOrder?.kodePesanan ?? '-'} (${_selectedOrder?.namaPelanggan ?? '-'})'),
-                      Text('• Kategori: ${_selectedCategory?.nama ?? '-'}'),
-                      Text('• Judul: ${_judulController.text.isNotEmpty ? _judulController.text : '-'}'),
-                      Text('• Prioritas: ${IconUtil.getPriorityLabel(_selectedPrioritas)}'),
+                      Text(
+                        '• Pesanan: ${_selectedOrder?.kodePesanan ?? '-'} (${_selectedOrder?.namaPelanggan ?? '-'})',
+                        style: TextStyle(color: AppColors.getTextMuted(context), fontSize: 13),
+                      ),
+                      Text(
+                        '• Kategori: ${_selectedCategory?.nama ?? '-'}',
+                        style: TextStyle(color: AppColors.getTextMuted(context), fontSize: 13),
+                      ),
+                      Text(
+                        '• Judul: ${_judulController.text.isNotEmpty ? _judulController.text : '-'}',
+                        style: TextStyle(color: AppColors.getTextMuted(context), fontSize: 13),
+                      ),
+                      Text(
+                        '• Prioritas: ${IconUtil.getPriorityLabel(_selectedPrioritas)}',
+                        style: TextStyle(color: AppColors.getTextMuted(context), fontSize: 13),
+                      ),
                     ],
                   ),
                 ),

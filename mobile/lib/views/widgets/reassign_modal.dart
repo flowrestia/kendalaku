@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/error_mapper.dart';
 import '../../data/models/models.dart';
 import '../../providers/app_providers.dart';
 
@@ -66,7 +67,7 @@ class _ReassignModalState extends ConsumerState<ReassignModal> {
       if (mounted) {
         setState(() {
           _isSubmitting = false;
-          _errorMessage = e.toString().replaceAll('Exception: ', '');
+          _errorMessage = ErrorMapper.getMessage(e);
         });
       }
     }
@@ -75,6 +76,7 @@ class _ReassignModalState extends ConsumerState<ReassignModal> {
   @override
   Widget build(BuildContext context) {
     final usersAsync = ref.watch(usersListProvider);
+    final isDark = AppColors.isDark(context);
 
     return Container(
       padding: EdgeInsets.only(
@@ -83,9 +85,9 @@ class _ReassignModalState extends ConsumerState<ReassignModal> {
         left: 20,
         right: 20,
       ),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: AppColors.getCardColor(context),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -96,7 +98,7 @@ class _ReassignModalState extends ConsumerState<ReassignModal> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey.shade300,
+                color: isDark ? const Color(0xFF475569) : Colors.grey.shade300,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -107,7 +109,7 @@ class _ReassignModalState extends ConsumerState<ReassignModal> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: AppColors.primaryContainer,
+                  color: isDark ? const Color(0xFF1E3A8A).withValues(alpha: 0.3) : AppColors.primaryContainer,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(Icons.person_add_alt_1_rounded, color: AppColors.primary, size: 20),
@@ -117,13 +119,13 @@ class _ReassignModalState extends ConsumerState<ReassignModal> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Pindahkan ke Petugas Lain',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textMain),
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.getTextMain(context)),
                     ),
                     Text(
                       'Kendala ${widget.issue.kodeKendala}',
-                      style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                      style: TextStyle(fontSize: 12, color: AppColors.getTextMuted(context)),
                     ),
                   ],
                 ),
@@ -136,7 +138,7 @@ class _ReassignModalState extends ConsumerState<ReassignModal> {
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.statusRejectedBg,
+                color: isDark ? const Color(0xFF450A0A) : AppColors.statusRejectedBg,
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: AppColors.statusRejected.withValues(alpha: 0.3)),
               ),
@@ -145,26 +147,28 @@ class _ReassignModalState extends ConsumerState<ReassignModal> {
                 style: const TextStyle(fontSize: 12, color: AppColors.statusRejected, fontWeight: FontWeight.w600),
               ),
             ),
-          const Text('Petugas Tujuan', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textMain)),
+          Text('Petugas Tujuan', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.getTextMain(context))),
           const SizedBox(height: 8),
           usersAsync.when(
             data: (users) {
               final petugasList = users.where((u) => u.role == 'petugas').toList();
               if (petugasList.isEmpty) {
-                return const Text('Tidak ada petugas terdaftar', style: TextStyle(color: AppColors.textMuted));
+                return Text('Tidak ada petugas terdaftar', style: TextStyle(color: AppColors.getTextMuted(context)));
               }
 
               return Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF131D31) : Colors.white,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.cardBorder),
+                  border: Border.all(color: AppColors.getCardBorder(context)),
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<int>(
                     isExpanded: true,
                     value: _selectedUserId,
-                    hint: const Text('Pilih petugas...', style: TextStyle(fontSize: 13, color: AppColors.textMuted)),
+                    dropdownColor: AppColors.getCardColor(context),
+                    hint: Text('Pilih petugas...', style: TextStyle(fontSize: 13, color: AppColors.getTextMuted(context))),
                     items: petugasList.map((u) {
                       final isCurrent = widget.issue.assignedTo == u.id;
                       return DropdownMenuItem<int>(
@@ -173,7 +177,7 @@ class _ReassignModalState extends ConsumerState<ReassignModal> {
                           '${u.nama}${isCurrent ? ' (Saat ini)' : ''}',
                           style: TextStyle(
                             fontSize: 13,
-                            color: isCurrent ? AppColors.textMuted : AppColors.textMain,
+                            color: isCurrent ? AppColors.getTextMuted(context) : AppColors.getTextMain(context),
                             fontWeight: isCurrent ? FontWeight.normal : FontWeight.w600,
                           ),
                         ),
@@ -190,19 +194,29 @@ class _ReassignModalState extends ConsumerState<ReassignModal> {
               );
             },
             loading: () => const LinearProgressIndicator(),
-            error: (err, _) => Text('Gagal memuat petugas: $err', style: const TextStyle(color: AppColors.statusRejected)),
+            error: (err, _) => Text(ErrorMapper.getMessage(err), style: const TextStyle(color: AppColors.statusRejected)),
           ),
           const SizedBox(height: 16),
-          const Text('Catatan Pengalihan (Opsional)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textMain)),
+          Text('Catatan Pengalihan (Opsional)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.getTextMain(context))),
           const SizedBox(height: 8),
           TextField(
             controller: _catatanController,
             maxLines: 2,
             maxLength: 300,
+            style: TextStyle(color: AppColors.getTextMain(context)),
             decoration: InputDecoration(
               hintText: 'Contoh: Dialihkan karena beban kerja atau izin sakit...',
-              hintStyle: const TextStyle(fontSize: 12, color: AppColors.textMuted),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              hintStyle: TextStyle(fontSize: 12, color: isDark ? Colors.white54 : AppColors.textMuted),
+              fillColor: isDark ? const Color(0xFF131D31) : Colors.white,
+              filled: true,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: AppColors.getCardBorder(context)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: AppColors.getCardBorder(context)),
+              ),
               contentPadding: const EdgeInsets.all(12),
             ),
           ),

@@ -58,7 +58,14 @@ func (s *Service) GetUserProfile(userID uint64) (*domain.User, error) {
 }
 
 func (s *Service) GetAllUsers() ([]domain.User, error) {
-	return s.repo.GetAllUsers()
+	users, err := s.repo.GetAllUsers()
+	if err != nil {
+		return nil, err
+	}
+	if users == nil {
+		users = make([]domain.User, 0)
+	}
+	return users, nil
 }
 
 func (s *Service) ChangePassword(userID uint64, req domain.ChangePasswordRequest) error {
@@ -91,7 +98,14 @@ func (s *Service) ChangePassword(userID uint64, req domain.ChangePasswordRequest
 
 
 func (s *Service) GetAllCategories(onlyActive bool) ([]domain.ProblemCategory, error) {
-	return s.repo.GetAllCategories(onlyActive)
+	categories, err := s.repo.GetAllCategories(onlyActive)
+	if err != nil {
+		return nil, err
+	}
+	if categories == nil {
+		categories = make([]domain.ProblemCategory, 0)
+	}
+	return categories, nil
 }
 
 func (s *Service) CreateCategory(req domain.CategoryRequest) (*domain.ProblemCategory, error) {
@@ -153,7 +167,14 @@ func (s *Service) DeleteCategory(id uint64) error {
 // ---------------- ORDER SIMULASI SERVICE ----------------
 
 func (s *Service) GetAllOrders() ([]domain.Order, error) {
-	return s.repo.GetAllOrders()
+	orders, err := s.repo.GetAllOrders()
+	if err != nil {
+		return nil, err
+	}
+	if orders == nil {
+		orders = make([]domain.Order, 0)
+	}
+	return orders, nil
 }
 
 // ---------------- ORDER ISSUES SERVICE ----------------
@@ -236,6 +257,9 @@ func (s *Service) ListIssues(filter domain.IssueFilter) (*domain.PaginatedResult
 	items, total, err := s.repo.ListIssues(filter)
 	if err != nil {
 		return nil, err
+	}
+	if items == nil {
+		items = make([]domain.OrderIssue, 0)
 	}
 
 	totalPages := 0
@@ -370,7 +394,14 @@ func (s *Service) GetIssueTransitions(issueID uint64) ([]domain.IssueTransaction
 	if err != nil {
 		return nil, errors.New("kendala tidak ditemukan")
 	}
-	return s.repo.GetTransactionsByIssueID(issueID)
+	list, err := s.repo.GetTransactionsByIssueID(issueID)
+	if err != nil {
+		return nil, err
+	}
+	if list == nil {
+		list = make([]domain.IssueTransaction, 0)
+	}
+	return list, nil
 }
 
 // ---------------- FASE 3: DASHBOARD & REPORT SERVICE ----------------
@@ -418,6 +449,9 @@ func (s *Service) GetCategoryStats() ([]domain.CategoryStatResponse, error) {
 	list, err := s.repo.GetCategoryStats()
 	if err != nil {
 		return nil, fmt.Errorf("gagal mengambil statistik kategori: %w", err)
+	}
+	if list == nil {
+		list = make([]domain.CategoryStatResponse, 0)
 	}
 
 	totalAll := 0
@@ -567,7 +601,7 @@ func (s *Service) GetReportRecap(from, to string) (*domain.ReportRecapResponse, 
 		}
 	}
 
-	var perKategori []domain.CategoryRecapItem
+	perKategori := make([]domain.CategoryRecapItem, 0)
 	var topCategory *string
 	maxCount := -1
 
@@ -668,7 +702,14 @@ func (s *Service) ExportReportCSV(from, to string) (*bytes.Buffer, error) {
 }
 
 func (s *Service) GetActivityLogs(limit int) ([]domain.ActivityLogItem, error) {
-	return s.repo.GetActivityLogs(limit)
+	list, err := s.repo.GetActivityLogs(limit)
+	if err != nil {
+		return nil, err
+	}
+	if list == nil {
+		list = make([]domain.ActivityLogItem, 0)
+	}
+	return list, nil
 }
 
 // PriorityRank memetakan prioritas ke nilai integer (kritis paling tinggi)
@@ -825,7 +866,14 @@ func (s *Service) GetComments(issueID uint64) ([]domain.IssueComment, error) {
 	if err != nil {
 		return nil, errors.New("kendala tidak ditemukan")
 	}
-	return s.repo.GetCommentsByIssueID(issueID)
+	comments, err := s.repo.GetCommentsByIssueID(issueID)
+	if err != nil {
+		return nil, err
+	}
+	if comments == nil {
+		comments = make([]domain.IssueComment, 0)
+	}
+	return comments, nil
 }
 
 func (s *Service) CreateComment(issueID, userID uint64, req domain.CreateCommentRequest) (*domain.IssueComment, error) {
@@ -909,7 +957,14 @@ func (s *Service) GetIssuesDueSoon(hours int) ([]domain.OrderIssue, error) {
 	if hours <= 0 {
 		hours = 24
 	}
-	return s.repo.GetIssuesDueSoon(hours)
+	list, err := s.repo.GetIssuesDueSoon(hours)
+	if err != nil {
+		return nil, err
+	}
+	if list == nil {
+		list = make([]domain.OrderIssue, 0)
+	}
+	return list, nil
 }
 
 

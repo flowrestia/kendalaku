@@ -16,8 +16,10 @@ class StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = AppColors.getStatusColor(status);
-    final bgColor = AppColors.getStatusBgColor(status);
+    final isDark = AppColors.isDark(context);
+    final rawColor = AppColors.getStatusColor(status);
+    final color = isDark ? (rawColor == AppColors.statusNew ? const Color(0xFF60A5FA) : (rawColor == AppColors.statusResolved ? const Color(0xFF4ADE80) : rawColor)) : rawColor;
+    final bgColor = isDark ? color.withValues(alpha: 0.18) : AppColors.getStatusBgColor(status);
     final icon = IconUtil.getStatusIcon(status);
     final label = IconUtil.getStatusLabel(status);
 
@@ -26,7 +28,7 @@ class StatusBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
+        border: Border.all(color: color.withValues(alpha: isDark ? 0.4 : 0.3), width: 1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -47,6 +49,7 @@ class StatusBadge extends StatelessWidget {
       ),
     );
   }
+
 }
 
 class PriorityBadge extends StatelessWidget {
@@ -56,14 +59,16 @@ class PriorityBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = AppColors.getPriorityColor(prioritas);
+    final isDark = AppColors.isDark(context);
+    final rawColor = AppColors.getPriorityColor(prioritas);
+    final color = isDark ? (rawColor == AppColors.priorityLow ? const Color(0xFF94A3B8) : (rawColor == AppColors.priorityMedium ? const Color(0xFF38BDF8) : rawColor)) : rawColor;
     final label = IconUtil.getPriorityLabel(prioritas);
     final isCritical = prioritas.toLowerCase() == 'kritis';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
+        color: color.withValues(alpha: isDark ? 0.2 : 0.12),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -90,4 +95,5 @@ class PriorityBadge extends StatelessWidget {
       ),
     );
   }
+
 }

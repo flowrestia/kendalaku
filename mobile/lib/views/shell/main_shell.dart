@@ -101,14 +101,17 @@ class MainShell extends StatelessWidget {
     }
 
     // Mobile Layout: Bottom Navigation Bar ergonomis zona jempol
+    final isDark = AppColors.isDark(context);
     return Scaffold(
+      backgroundColor: AppColors.getBackgroundColor(context),
       body: child,
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.getCardColor(context),
+          border: Border(top: BorderSide(color: AppColors.getCardBorder(context))),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
+              color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
               blurRadius: 10,
               offset: const Offset(0, -3),
             ),
@@ -118,7 +121,7 @@ class MainShell extends StatelessWidget {
           currentIndex: selectedIndex,
           onTap: (idx) => _onItemTapped(idx, context),
           selectedItemColor: AppColors.primary,
-          unselectedItemColor: AppColors.textMuted,
+          unselectedItemColor: AppColors.getTextMuted(context),
           showUnselectedLabels: true,
           elevation: 0,
           type: BottomNavigationBarType.fixed,

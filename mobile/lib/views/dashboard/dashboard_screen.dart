@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/icon_util.dart';
+import '../../core/utils/error_mapper.dart';
 import '../../data/models/models.dart';
 import '../../providers/app_providers.dart';
+import '../widgets/error_view.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -21,18 +23,16 @@ class DashboardScreen extends ConsumerWidget {
     final dueSoonAsync = ref.watch(dueSoonIssuesProvider);
 
     return Scaffold(
+      backgroundColor: AppColors.getBackgroundColor(context),
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [
-              AppColors.backgroundGradientStart,
-              AppColors.backgroundLight,
-              AppColors.backgroundGradientEnd,
-            ],
+            colors: AppColors.getBackgroundGradient(context),
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
         ),
+
         child: SafeArea(
           bottom: false,
           child: RefreshIndicator(
@@ -86,7 +86,7 @@ class DashboardScreen extends ConsumerWidget {
                   // 3. Donut Chart Distribusi Kategori
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: _buildCategoryDistributionCard(context, categoriesAsync),
+                    child: _buildCategoryDistributionCard(context, ref, categoriesAsync),
                   ),
 
                   const SizedBox(height: 24),
@@ -252,6 +252,7 @@ class DashboardScreen extends ConsumerWidget {
           children: [
             Expanded(
               child: _buildMetricCard(
+                context: context,
                 title: 'Total Kendala',
                 value: summary.total,
                 icon: Icons.layers_rounded,
@@ -262,6 +263,7 @@ class DashboardScreen extends ConsumerWidget {
             const SizedBox(width: 12),
             Expanded(
               child: _buildMetricCard(
+                context: context,
                 title: 'Terlambat SLA',
                 value: summary.terlambat,
                 icon: Icons.alarm_rounded,
@@ -278,6 +280,7 @@ class DashboardScreen extends ConsumerWidget {
           children: [
             Expanded(
               child: _buildMetricCard(
+                context: context,
                 title: 'Baru',
                 value: summary.baru,
                 icon: Icons.fiber_new_rounded,
@@ -288,6 +291,7 @@ class DashboardScreen extends ConsumerWidget {
             const SizedBox(width: 10),
             Expanded(
               child: _buildMetricCard(
+                context: context,
                 title: 'Diproses',
                 value: summary.sedangDiproses,
                 icon: Icons.autorenew_rounded,
@@ -298,6 +302,7 @@ class DashboardScreen extends ConsumerWidget {
             const SizedBox(width: 10),
             Expanded(
               child: _buildMetricCard(
+                context: context,
                 title: 'Selesai',
                 value: summary.selesai,
                 icon: Icons.check_circle_rounded,
@@ -307,15 +312,16 @@ class DashboardScreen extends ConsumerWidget {
             ),
           ],
         ),
+
         const SizedBox(height: 12),
 
         // Baris 3: Efisiensi (Rata-rata waktu & Tingkat Selesai)
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.getCardColor(context),
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppColors.cardBorder.withValues(alpha: 0.8)),
+            border: Border.all(color: AppColors.getCardBorder(context).withValues(alpha: 0.8)),
             boxShadow: [
               BoxShadow(
                 color: const Color(0xFF0F172A).withValues(alpha: 0.03),
@@ -329,7 +335,7 @@ class DashboardScreen extends ConsumerWidget {
             children: [
               Column(
                 children: [
-                  const Text('Rata-rata Penyelesaian', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                  Text('Rata-rata Penyelesaian', style: TextStyle(fontSize: 12, color: AppColors.getTextMuted(context))),
                   const SizedBox(height: 4),
                   Row(
                     mainAxisSize: MainAxisSize.min,
@@ -338,16 +344,16 @@ class DashboardScreen extends ConsumerWidget {
                       const SizedBox(width: 6),
                       Text(
                         '${summary.rataRataWaktuJam.toStringAsFixed(1)} Jam',
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.textMain),
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.getTextMain(context)),
                       ),
                     ],
                   ),
                 ],
               ),
-              Container(width: 1, height: 36, color: AppColors.cardBorder),
+              Container(width: 1, height: 36, color: AppColors.getCardBorder(context)),
               Column(
                 children: [
-                  const Text('Tingkat Terselesaikan', style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                  Text('Tingkat Terselesaikan', style: TextStyle(fontSize: 12, color: AppColors.getTextMuted(context))),
                   const SizedBox(height: 4),
                   Row(
                     mainAxisSize: MainAxisSize.min,
@@ -356,7 +362,7 @@ class DashboardScreen extends ConsumerWidget {
                       const SizedBox(width: 6),
                       Text(
                         '${summary.persentaseSelesai.toStringAsFixed(1)}%',
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.primary),
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.isDark(context) ? AppColors.primaryLight : AppColors.primary),
                       ),
                     ],
                   ),
@@ -370,6 +376,7 @@ class DashboardScreen extends ConsumerWidget {
   }
 
   Widget _buildMetricCard({
+    required BuildContext context,
     required String title,
     required int value,
     required IconData icon,
@@ -379,9 +386,9 @@ class DashboardScreen extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.getCardColor(context),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.cardBorder.withValues(alpha: 0.8)),
+        border: Border.all(color: AppColors.getCardBorder(context).withValues(alpha: 0.8)),
         boxShadow: [
           BoxShadow(
             color: accentColor.withValues(alpha: 0.04),
@@ -395,7 +402,7 @@ class DashboardScreen extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: bgColor,
+              color: AppColors.isDark(context) ? accentColor.withValues(alpha: 0.18) : bgColor,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: accentColor, size: 20),
@@ -407,7 +414,7 @@ class DashboardScreen extends ConsumerWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(fontSize: 11, color: AppColors.textMuted, fontWeight: FontWeight.w600),
+                  style: TextStyle(fontSize: 11, color: AppColors.getTextMuted(context), fontWeight: FontWeight.w600),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -437,13 +444,18 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildCategoryDistributionCard(BuildContext context, AsyncValue<List<CategoryStat>> categoriesAsync) {
+
+  Widget _buildCategoryDistributionCard(
+    BuildContext context,
+    WidgetRef ref,
+    AsyncValue<List<CategoryStat>> categoriesAsync,
+  ) {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.getCardColor(context),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.cardBorder.withValues(alpha: 0.8)),
+        border: Border.all(color: AppColors.getCardBorder(context).withValues(alpha: 0.8)),
         boxShadow: [
           BoxShadow(
             color: const Color(0xFF0F172A).withValues(alpha: 0.03),
@@ -455,24 +467,24 @@ class DashboardScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
                 'Distribusi Kategori Kendala',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textMain),
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.getTextMain(context)),
               ),
-              Icon(Icons.pie_chart_rounded, size: 20, color: AppColors.primary),
+              const Icon(Icons.pie_chart_rounded, size: 20, color: AppColors.primary),
             ],
           ),
           const SizedBox(height: 16),
           categoriesAsync.when(
             data: (cats) {
               if (cats.isEmpty) {
-                return const Center(
+                return Center(
                   child: Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Text('Belum ada data kategori', style: TextStyle(color: AppColors.textMuted)),
+                    padding: const EdgeInsets.all(24),
+                    child: Text('Belum ada data kategori', style: TextStyle(color: AppColors.getTextMuted(context))),
                   ),
                 );
               }
@@ -521,7 +533,7 @@ class DashboardScreen extends ConsumerWidget {
                           const SizedBox(width: 6),
                           Text(
                             '${c.nama} (${c.total})',
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textMain),
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.getTextMain(context)),
                           ),
                         ],
                       );
@@ -531,7 +543,11 @@ class DashboardScreen extends ConsumerWidget {
               );
             },
             loading: () => const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator())),
-            error: (err, _) => Center(child: Text('Gagal memuat kategori: $err', style: const TextStyle(color: AppColors.statusRejected))),
+            error: (err, _) => ErrorView.fromException(
+              error: err,
+              isCompact: true,
+              onRetry: () => ref.invalidate(dashboardCategoryStatsProvider),
+            ),
           ),
         ],
       ),
@@ -547,9 +563,9 @@ class DashboardScreen extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.getCardColor(context),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.cardBorder.withValues(alpha: 0.8)),
+        border: Border.all(color: AppColors.getCardBorder(context).withValues(alpha: 0.8)),
         boxShadow: [
           BoxShadow(
             color: const Color(0xFF0F172A).withValues(alpha: 0.03),
@@ -564,21 +580,22 @@ class DashboardScreen extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Column(
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     'Tren Kendala',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textMain),
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.getTextMain(context)),
                   ),
-                  Text('Masuk vs Terselesaikan', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                  Text('Masuk vs Terselesaikan', style: TextStyle(fontSize: 11, color: AppColors.getTextMuted(context))),
                 ],
               ),
               // Segmented Button Pilihan Periode
               Container(
                 decoration: BoxDecoration(
-                  color: AppColors.backgroundLight,
+                  color: AppColors.isDark(context) ? AppColors.surfaceDark : AppColors.backgroundLight,
                   borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.getCardBorder(context).withValues(alpha: 0.5)),
                 ),
                 padding: const EdgeInsets.all(2),
                 child: Row(
@@ -598,8 +615,8 @@ class DashboardScreen extends ConsumerWidget {
                           label,
                           style: TextStyle(
                             fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: isSel ? Colors.white : AppColors.textMuted,
+                            fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
+                            color: isSel ? Colors.white : AppColors.getTextMuted(context),
                           ),
                         ),
                       ),
@@ -610,6 +627,7 @@ class DashboardScreen extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 20),
+
           trendAsync.when(
             data: (trend) {
               if (trend.isEmpty) {
@@ -704,7 +722,11 @@ class DashboardScreen extends ConsumerWidget {
               );
             },
             loading: () => const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator())),
-            error: (err, _) => Center(child: Text('Gagal: $err', style: const TextStyle(color: AppColors.statusRejected))),
+            error: (err, _) => ErrorView.fromException(
+              error: err,
+              isCompact: true,
+              onRetry: () => ref.invalidate(dashboardTrendProvider),
+            ),
           ),
         ],
       ),
@@ -715,9 +737,9 @@ class DashboardScreen extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.getCardColor(context),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.cardBorder.withValues(alpha: 0.8)),
+        border: Border.all(color: AppColors.getCardBorder(context).withValues(alpha: 0.8)),
         boxShadow: [
           BoxShadow(
             color: const Color(0xFF0F172A).withValues(alpha: 0.03),
@@ -732,13 +754,13 @@ class DashboardScreen extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Row(
+              Row(
                 children: [
-                  Icon(Icons.priority_high_rounded, color: AppColors.priorityCritical, size: 20),
-                  SizedBox(width: 8),
+                  const Icon(Icons.priority_high_rounded, color: AppColors.priorityCritical, size: 20),
+                  const SizedBox(width: 8),
                   Text(
                     'Perlu Perhatian (Terlambat & Kritis)',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textMain),
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.getTextMain(context)),
                   ),
                 ],
               ),
@@ -758,9 +780,9 @@ class DashboardScreen extends ConsumerWidget {
                 return Container(
                   padding: const EdgeInsets.all(16),
                   alignment: Alignment.center,
-                  child: const Text(
+                  child: Text(
                     'Tidak ada kendala yang melewati tenggat atau berkategori kritis.',
-                    style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                    style: TextStyle(fontSize: 12, color: AppColors.getTextMuted(context)),
                     textAlign: TextAlign.center,
                   ),
                 );
@@ -771,12 +793,12 @@ class DashboardScreen extends ConsumerWidget {
                   return Container(
                     margin: const EdgeInsets.only(bottom: 8),
                     decoration: BoxDecoration(
-                      color: AppColors.backgroundLight,
+                      color: AppColors.getBackgroundColor(context),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: issue.isOverdue
                             ? AppColors.statusRejected.withValues(alpha: 0.3)
-                            : AppColors.cardBorder,
+                            : AppColors.getCardBorder(context),
                       ),
                     ),
                     child: Material(
@@ -786,13 +808,13 @@ class DashboardScreen extends ConsumerWidget {
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
                         title: Text(
                           issue.judul,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.getTextMain(context)),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                         subtitle: Text(
                           '${issue.kodeKendala} • ${issue.namaPelanggan}',
-                          style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                          style: TextStyle(fontSize: 11, color: AppColors.getTextMuted(context)),
                         ),
                         trailing: issue.isOverdue
                             ? Container(
@@ -833,7 +855,7 @@ class DashboardScreen extends ConsumerWidget {
               );
             },
             loading: () => const LinearProgressIndicator(),
-            error: (err, _) => Text('Gagal: $err', style: const TextStyle(color: AppColors.statusRejected)),
+            error: (err, _) => Text(ErrorMapper.getMessage(err), style: const TextStyle(color: AppColors.statusRejected, fontSize: 13)),
           ),
         ],
       ),
@@ -844,16 +866,19 @@ class DashboardScreen extends ConsumerWidget {
     return summaryAsync.maybeWhen(
       data: (summary) {
         if (summary.jatuhTempoSegera <= 0) return const SizedBox.shrink();
+        final isDark = AppColors.isDark(context);
         return Container(
           margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFFFFFBEB), Color(0xFFFEF3C7)],
+            gradient: LinearGradient(
+              colors: isDark
+                  ? [const Color(0xFF451A03), const Color(0xFF78350F)]
+                  : [const Color(0xFFFFFBEB), const Color(0xFFFEF3C7)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFFDE68A)),
+            border: Border.all(color: isDark ? const Color(0xFF92400E) : const Color(0xFFFDE68A)),
             boxShadow: [
               BoxShadow(
                 color: const Color(0xFFD97706).withValues(alpha: 0.1),
@@ -890,21 +915,28 @@ class DashboardScreen extends ConsumerWidget {
                         children: [
                           Text(
                             '${summary.jatuhTempoSegera} kendala jatuh tempo dalam 24 jam',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
-                              color: Color(0xFF92400E),
+                              color: isDark ? const Color(0xFFFDE68A) : const Color(0xFF92400E),
                             ),
                           ),
                           const SizedBox(height: 2),
-                          const Text(
+                          Text(
                             'Ketuk untuk melihat seluruh kendala yang mendekati batas waktu SLA',
-                            style: TextStyle(fontSize: 11, color: Color(0xFFB45309)),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isDark ? const Color(0xFFFCD34D) : const Color(0xFFB45309),
+                            ),
                           ),
                         ],
                       ),
                     ),
-                    const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Color(0xFFB45309)),
+                    Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 14,
+                      color: isDark ? const Color(0xFFFCD34D) : const Color(0xFFB45309),
+                    ),
                   ],
                 ),
               ),
@@ -920,9 +952,9 @@ class DashboardScreen extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.getCardColor(context),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.cardBorder.withValues(alpha: 0.8)),
+        border: Border.all(color: AppColors.getCardBorder(context).withValues(alpha: 0.8)),
         boxShadow: [
           BoxShadow(
             color: const Color(0xFF0F172A).withValues(alpha: 0.03),
@@ -937,19 +969,19 @@ class DashboardScreen extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Row(
+              Row(
                 children: [
-                  Icon(Icons.hourglass_top_rounded, color: AppColors.accentAmber, size: 20),
-                  SizedBox(width: 8),
+                  const Icon(Icons.hourglass_top_rounded, color: AppColors.accentAmber, size: 20),
+                  const SizedBox(width: 8),
                   Text(
                     'Segera Jatuh Tempo (24 Jam)',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textMain),
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.getTextMain(context)),
                   ),
                 ],
               ),
               TextButton(
                 onPressed: () => context.go('/issues'),
-                child: const Text('Buka Daftar', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                child: const Text('Lihat Semua', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -1026,7 +1058,10 @@ class DashboardScreen extends ConsumerWidget {
               ),
             ),
             error: (err, _) => Center(
-              child: Text('Gagal: $err', style: const TextStyle(color: AppColors.statusRejected)),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text(ErrorMapper.getMessage(err), style: const TextStyle(color: AppColors.statusRejected, fontSize: 13)),
+              ),
             ),
           ),
         ],
@@ -1036,20 +1071,17 @@ class DashboardScreen extends ConsumerWidget {
 
   Widget _buildErrorCard(String msg, VoidCallback onRetry) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.statusRejected.withValues(alpha: 0.3)),
       ),
-      child: Column(
-        children: [
-          const Icon(Icons.error_outline_rounded, color: AppColors.statusRejected, size: 36),
-          const SizedBox(height: 8),
-          Text(msg, style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.statusRejected)),
-          const SizedBox(height: 12),
-          ElevatedButton(onPressed: onRetry, child: const Text('Coba Lagi')),
-        ],
+      child: ErrorView(
+        variant: ErrorType.serverError,
+        title: msg,
+        isCompact: true,
+        onRetry: onRetry,
       ),
     );
   }

@@ -4,6 +4,7 @@ import '../../providers/app_providers.dart';
 import '../../views/auth/login_screen.dart';
 import '../../views/categories/manage_categories_screen.dart';
 import '../../views/dashboard/dashboard_screen.dart';
+import '../../views/error/error_screens.dart';
 import '../../views/issues/issue_detail_screen.dart';
 import '../../views/issues/issue_wizard_screen.dart';
 import '../../views/issues/issues_list_screen.dart';
@@ -16,9 +17,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
   return GoRouter(
     initialLocation: '/dashboard',
+    errorBuilder: (context, state) => const NotFoundScreen(),
     redirect: (context, state) {
       final isAuth = authState.isAuthenticated;
-      final isLoggingIn = state.matchedLocation == '/login';
+      final loc = state.matchedLocation;
+      final isLoggingIn = loc == '/login';
+      final isPublicError = loc == '/403' || loc == '/500';
+
+      if (isPublicError) {
+        return null;
+      }
 
       if (!isAuth && !isLoggingIn) {
         return '/login';
@@ -32,6 +40,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/login',
         builder: (context, state) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: '/403',
+        builder: (context, state) => const ForbiddenScreen(),
+      ),
+      GoRoute(
+        path: '/500',
+        builder: (context, state) => const ServerErrorScreen(),
       ),
       ShellRoute(
         builder: (context, state, child) => MainShell(child: child),

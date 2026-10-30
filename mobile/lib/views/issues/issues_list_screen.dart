@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
@@ -8,6 +10,7 @@ import '../widgets/filter_bottom_sheet.dart';
 import '../widgets/issue_card.dart';
 import '../widgets/status_transition_modal.dart';
 import '../widgets/whatsapp_preview_sheet.dart';
+import '../widgets/error_view.dart';
 
 class IssuesListScreen extends ConsumerStatefulWidget {
   const IssuesListScreen({super.key});
@@ -20,6 +23,7 @@ class _IssuesListScreenState extends ConsumerState<IssuesListScreen> {
   final _searchController = TextEditingController();
   bool _isSelectionMode = false;
   final Set<int> _selectedIds = {};
+  int? _lastSelectedIndex;
 
   @override
   void dispose() {
@@ -50,6 +54,7 @@ class _IssuesListScreenState extends ConsumerState<IssuesListScreen> {
     setState(() {
       _isSelectionMode = false;
       _selectedIds.clear();
+      _lastSelectedIndex = null;
     });
   }
 
@@ -111,20 +116,30 @@ class _IssuesListScreenState extends ConsumerState<IssuesListScreen> {
     final isHighPriorityActive = filter.prioritas == 'tinggi,kritis';
     final isMyIssuesActive = filter.assignedTo == 'me' || (userId != null && filter.assignedTo == userId);
 
+    final isDark = AppColors.isDark(context);
+
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              AppColors.backgroundGradientStart,
-              AppColors.backgroundLight,
-              AppColors.backgroundGradientEnd,
-            ],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+      backgroundColor: AppColors.getBackgroundColor(context),
+      body: Focus(
+        autofocus: true,
+        onKeyEvent: (node, event) {
+          if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape) {
+            if (_isSelectionMode) {
+              _exitSelectionMode();
+              return KeyEventResult.handled;
+            }
+          }
+          return KeyEventResult.ignored;
+        },
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: AppColors.getBackgroundGradient(context),
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
           ),
-        ),
-        child: SafeArea(
+          child: SafeArea(
           bottom: false,
           child: RefreshIndicator(
             onRefresh: () async {
@@ -138,9 +153,9 @@ class _IssuesListScreenState extends ConsumerState<IssuesListScreen> {
                   margin: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.getCardColor(context),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.cardBorder.withValues(alpha: 0.7)),
+                    border: Border.all(color: AppColors.getCardBorder(context).withValues(alpha: 0.7)),
                     boxShadow: [
                       BoxShadow(
                         color: AppColors.primary.withValues(alpha: 0.05),
@@ -157,6 +172,7 @@ class _IssuesListScreenState extends ConsumerState<IssuesListScreen> {
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
+
                       // Dekorasi Blob Aksen Halus di Latar Belakang Header
                       Positioned(
                         right: -10,
@@ -230,23 +246,24 @@ class _IssuesListScreenState extends ConsumerState<IssuesListScreen> {
                                   Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      const Text(
+                                      Text(
                                         'KendalaKu',
                                         style: TextStyle(
                                           fontWeight: FontWeight.w800,
                                           fontSize: 18,
-                                          color: AppColors.primaryDark,
+                                          color: isDark ? Colors.white : AppColors.primaryDark,
                                           letterSpacing: -0.3,
                                         ),
                                       ),
                                       Text(
                                         authState.user != null ? 'Halo, ${authState.user!.nama}' : 'Daftar Kendala Pesanan',
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 12,
-                                          color: AppColors.textMuted,
+                                          color: AppColors.getTextMuted(context),
                                           fontWeight: FontWeight.w500,
                                         ),
                                       ),
+
                                     ],
                                   ),
                                 ],
@@ -299,10 +316,10 @@ class _IssuesListScreenState extends ConsumerState<IssuesListScreen> {
                                   const SizedBox(width: 6),
                                   IconButton(
                                     style: IconButton.styleFrom(
-                                      backgroundColor: AppColors.backgroundLight,
+                                      backgroundColor: isDark ? AppColors.surfaceDark : AppColors.backgroundLight,
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                     ),
-                                    icon: const Icon(Icons.logout_rounded, size: 20, color: AppColors.textMuted),
+                                    icon: Icon(Icons.logout_rounded, size: 20, color: AppColors.getTextMuted(context)),
                                     tooltip: 'Keluar',
                                     onPressed: () async {
                                       await ref.read(authProvider.notifier).logout();
@@ -318,14 +335,28 @@ class _IssuesListScreenState extends ConsumerState<IssuesListScreen> {
                           // Search Bar
                           TextField(
                             controller: _searchController,
+                            style: TextStyle(color: AppColors.getTextMain(context)),
                             decoration: InputDecoration(
                               hintText: 'Cari kode, judul, atau invoice...',
-                              prefixIcon: const Icon(Icons.search_rounded, size: 20, color: AppColors.textMuted),
-                              fillColor: AppColors.backgroundLight,
+                              hintStyle: TextStyle(
+                                color: isDark ? Colors.white54 : AppColors.textMuted,
+                                fontSize: 13,
+                              ),
+                              prefixIcon: Icon(
+                                Icons.search_rounded,
+                                size: 20,
+                                color: isDark ? Colors.white70 : AppColors.textMuted,
+                              ),
+                              fillColor: isDark ? const Color(0xFF131D31) : AppColors.backgroundLight,
+                              filled: true,
                               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                               suffixIcon: _searchController.text.isNotEmpty
                                   ? IconButton(
-                                      icon: const Icon(Icons.clear_rounded, size: 18),
+                                      icon: Icon(
+                                        Icons.clear_rounded,
+                                        size: 18,
+                                        color: isDark ? Colors.white70 : AppColors.textMuted,
+                                      ),
                                       onPressed: () {
                                         _searchController.clear();
                                         ref.read(issueFilterProvider.notifier).updateFilter((s) => s.copyWith(search: ''));
@@ -337,6 +368,7 @@ class _IssuesListScreenState extends ConsumerState<IssuesListScreen> {
                               ref.read(issueFilterProvider.notifier).updateFilter((s) => s.copyWith(search: val.trim()));
                             },
                           ),
+
                         ],
                       ),
                     ],
@@ -435,12 +467,17 @@ class _IssuesListScreenState extends ConsumerState<IssuesListScreen> {
                 Expanded(
                   child: issuesAsync.when(
                     data: (res) {
-                      final items = res['items'] as List<OrderIssue>;
+                      final items = (res['items'] as List<OrderIssue>?) ?? const [];
                       final total = res['total'] as int? ?? items.length;
 
                       if (items.isEmpty) {
+                        final emptyText = isMyIssuesActive
+                            ? 'Belum ada kendala yang ditugaskan kepadamu.'
+                            : 'Belum ada kendala yang cocok dengan filter ini';
+
                         return Center(
-                          child: Padding(
+                          child: SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
                             padding: const EdgeInsets.all(32),
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -462,21 +499,43 @@ class _IssuesListScreenState extends ConsumerState<IssuesListScreen> {
                                   child: const Icon(Icons.inbox_rounded, size: 40, color: AppColors.primary),
                                 ),
                                 const SizedBox(height: 16),
-                                const Text(
-                                  'Tidak Ada Kendala',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.textMain),
-                                ),
-                                const SizedBox(height: 6),
-                                const Text(
-                                  'Tidak ada data kendala yang sesuai dengan filter atau kata kunci pencarian Anda.',
+                                Text(
+                                  emptyText,
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(color: AppColors.textMuted, fontSize: 13),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                    color: AppColors.getTextMain(context),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                OutlinedButton.icon(
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    ref.read(issueFilterProvider.notifier).reset();
+                                  },
+                                  icon: const Icon(Icons.filter_alt_off_rounded, size: 18),
+                                  label: const Text('Reset Filter'),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: AppColors.primary,
+                                    side: const BorderSide(color: AppColors.primary),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
                                 ),
                               ],
                             ),
                           ),
                         );
                       }
+
+                      final isWebOrDesktop = kIsWeb ||
+                          defaultTargetPlatform == TargetPlatform.windows ||
+                          defaultTargetPlatform == TargetPlatform.macOS ||
+                          defaultTargetPlatform == TargetPlatform.linux;
+
+                      final hintText = isWebOrDesktop
+                          ? "Klik 'Pilih' untuk memilih beberapa kendala"
+                          : "Tekan lama untuk mode pilih";
 
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -507,31 +566,78 @@ class _IssuesListScreenState extends ConsumerState<IssuesListScreen> {
                                       ),
                                       Text(
                                         '(${_selectedIds.length} dipilih)',
-                                        style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF475569),
+                                        ),
                                       ),
                                     ],
                                   )
                                 else
-                                  Text(
-                                    'Menampilkan $total Kendala',
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.textMuted,
-                                    ),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        'Menampilkan $total Kendala',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      TextButton.icon(
+                                        onPressed: () {
+                                          setState(() {
+                                            _isSelectionMode = true;
+                                          });
+                                        },
+                                        icon: const Icon(Icons.checklist_rounded, size: 16),
+                                        label: const Text('Pilih'),
+                                        style: TextButton.styleFrom(
+                                          foregroundColor: isDark ? AppColors.primaryLight : AppColors.primary,
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          minimumSize: const Size(0, 32),
+                                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 if (_isSelectionMode)
-                                  TextButton(
-                                    onPressed: _exitSelectionMode,
-                                    child: const Text('Batal', style: TextStyle(fontSize: 12, color: AppColors.statusRejected)),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      TextButton(
+                                        onPressed: _exitSelectionMode,
+                                        child: const Text('Batal', style: TextStyle(fontSize: 12, color: AppColors.statusRejected)),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      FilledButton.icon(
+                                        onPressed: _exitSelectionMode,
+                                        icon: const Icon(Icons.check_rounded, size: 14),
+                                        label: const Text('Selesai'),
+                                        style: FilledButton.styleFrom(
+                                          backgroundColor: AppColors.primary,
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                          minimumSize: const Size(0, 32),
+                                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                    ],
                                   )
                                 else
-                                  const Text(
-                                    'Tekan lama untuk mode pilih',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: AppColors.textMuted,
-                                      fontStyle: FontStyle.italic,
+                                  Flexible(
+                                    child: Text(
+                                      hintText,
+                                      textAlign: TextAlign.end,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569),
+                                        fontStyle: FontStyle.italic,
+                                      ),
                                     ),
                                   ),
                               ],
@@ -545,6 +651,10 @@ class _IssuesListScreenState extends ConsumerState<IssuesListScreen> {
                                 final issue = items[index];
                                 final delayMs = (index * 40).clamp(0, 400);
                                 final isSelected = _selectedIds.contains(issue.id);
+                                final currentUser = authState.user;
+                                final isAdmin = currentUser?.role == 'admin';
+                                final isAssignedToMe = currentUser != null && issue.assignedTo == currentUser.id;
+                                final canModify = isAdmin || isAssignedToMe;
 
                                 return TweenAnimationBuilder<double>(
                                   duration: Duration(milliseconds: 300 + delayMs),
@@ -563,9 +673,11 @@ class _IssuesListScreenState extends ConsumerState<IssuesListScreen> {
                                     issue: issue,
                                     isSelectionMode: _isSelectionMode,
                                     isSelected: isSelected,
+                                    canModify: canModify,
                                     onToggleSelect: (val) {
                                       setState(() {
                                         if (val == true) {
+                                          _isSelectionMode = true;
                                           _selectedIds.add(issue.id);
                                         } else {
                                           _selectedIds.remove(issue.id);
@@ -574,12 +686,22 @@ class _IssuesListScreenState extends ConsumerState<IssuesListScreen> {
                                     },
                                     onTap: () {
                                       if (_isSelectionMode) {
+                                        final isShiftPressed = HardwareKeyboard.instance.isShiftPressed;
                                         setState(() {
-                                          if (isSelected) {
-                                            _selectedIds.remove(issue.id);
+                                          if (isShiftPressed && _lastSelectedIndex != null) {
+                                            final start = _lastSelectedIndex! < index ? _lastSelectedIndex! : index;
+                                            final end = _lastSelectedIndex! > index ? _lastSelectedIndex! : index;
+                                            for (int i = start; i <= end; i++) {
+                                              _selectedIds.add(items[i].id);
+                                            }
                                           } else {
-                                            _selectedIds.add(issue.id);
+                                            if (isSelected) {
+                                              _selectedIds.remove(issue.id);
+                                            } else {
+                                              _selectedIds.add(issue.id);
+                                            }
                                           }
+                                          _lastSelectedIndex = index;
                                         });
                                       } else {
                                         context.push('/issues/${issue.id}');
@@ -595,6 +717,12 @@ class _IssuesListScreenState extends ConsumerState<IssuesListScreen> {
                                         _openTransitionModal(issue);
                                       }
                                     },
+                                    onOpenTransitionModal: () => _openTransitionModal(issue),
+                                    onViewOrder: () => context.push('/issues/${issue.id}'),
+                                    onShareWhatsApp: () => WhatsAppPreviewSheet.show(
+                                      context,
+                                      singleIssue: issue,
+                                    ),
                                   ),
                                 );
                               },
@@ -604,27 +732,9 @@ class _IssuesListScreenState extends ConsumerState<IssuesListScreen> {
                       );
                     },
                     loading: () => const Center(child: CircularProgressIndicator()),
-                    error: (err, _) => Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.error_outline_rounded, color: AppColors.statusRejected, size: 48),
-                            const SizedBox(height: 12),
-                            Text(
-                              'Gagal Memuat Kendala: $err',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(color: AppColors.statusRejected),
-                            ),
-                            const SizedBox(height: 16),
-                            ElevatedButton(
-                              onPressed: () => ref.invalidate(issuesListProvider),
-                              child: const Text('Coba Lagi'),
-                            ),
-                          ],
-                        ),
-                      ),
+                    error: (err, _) => ErrorView.fromException(
+                      error: err,
+                      onRetry: () => ref.invalidate(issuesListProvider),
                     ),
                   ),
                 ),
@@ -633,16 +743,63 @@ class _IssuesListScreenState extends ConsumerState<IssuesListScreen> {
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        elevation: 4,
-        icon: const Icon(Icons.add_task_rounded),
-        label: const Text('+ Lapor Kendala', style: TextStyle(fontWeight: FontWeight.bold)),
-        onPressed: () {
-          context.push('/issues/create');
-        },
       ),
+      bottomNavigationBar: _isSelectionMode
+          ? Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppColors.getCardColor(context),
+                border: Border(
+                  top: BorderSide(
+                    color: AppColors.getCardBorder(context).withValues(alpha: 0.8),
+                  ),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, -2),
+                  ),
+                ],
+              ),
+              child: SafeArea(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: _openWhatsAppShare,
+                        icon: const Icon(Icons.share_rounded, size: 18),
+                        label: Text(
+                          _selectedIds.isNotEmpty
+                              ? 'Kirim ${_selectedIds.length} terpilih'
+                              : 'Kirim hasil filter',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF1EBE5D),
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size(0, 48),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : null,
+      floatingActionButton: _isSelectionMode
+          ? null
+          : FloatingActionButton.extended(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              elevation: 4,
+              icon: const Icon(Icons.add_task_rounded),
+              label: const Text('+ Lapor Kendala', style: TextStyle(fontWeight: FontWeight.bold)),
+              onPressed: () {
+                context.push('/issues/create');
+              },
+            ),
     );
   }
 
@@ -653,10 +810,11 @@ class _IssuesListScreenState extends ConsumerState<IssuesListScreen> {
     required VoidCallback onTap,
     Color accentColor = AppColors.primary,
   }) {
+    final isDark = AppColors.isDark(context);
     final bgActive = accentColor;
     final fgActive = Colors.white;
-    final bgInactive = Colors.white;
-    final fgInactive = AppColors.textMain;
+    final bgInactive = AppColors.getCardColor(context);
+    final fgInactive = AppColors.getTextMain(context);
 
     return Material(
       color: Colors.transparent,
@@ -670,7 +828,7 @@ class _IssuesListScreenState extends ConsumerState<IssuesListScreen> {
             color: isSelected ? bgActive : bgInactive,
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: isSelected ? accentColor : AppColors.cardBorder.withValues(alpha: 0.8),
+              color: isSelected ? accentColor : AppColors.getCardBorder(context).withValues(alpha: 0.8),
               width: 1.2,
             ),
             boxShadow: isSelected
@@ -695,7 +853,7 @@ class _IssuesListScreenState extends ConsumerState<IssuesListScreen> {
               Icon(
                 icon,
                 size: 15,
-                color: isSelected ? fgActive : accentColor,
+                color: isSelected ? fgActive : (isDark ? Colors.white70 : accentColor),
               ),
               const SizedBox(width: 6),
               Text(
@@ -712,6 +870,7 @@ class _IssuesListScreenState extends ConsumerState<IssuesListScreen> {
       ),
     );
   }
+
 
   Widget _buildFilterChip(String label, VoidCallback onRemove) {
     return Container(

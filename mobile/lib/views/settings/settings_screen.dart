@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/date_util.dart';
+import '../../core/utils/error_mapper.dart';
 import '../../core/utils/icon_util.dart';
 import '../../providers/app_providers.dart';
+import '../widgets/error_view.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -185,7 +187,7 @@ class SettingsScreen extends ConsumerWidget {
                                     if (context.mounted) {
                                       ScaffoldMessenger.of(context).showSnackBar(
                                         SnackBar(
-                                          content: Text(err.toString().replaceAll('Exception: ', '')),
+                                          content: Text(ErrorMapper.getMessage(err)),
                                           backgroundColor: AppColors.statusRejected,
                                         ),
                                       );
@@ -224,9 +226,9 @@ class SettingsScreen extends ConsumerWidget {
             final usersAsync = ref.watch(usersListProvider);
             return Container(
           padding: const EdgeInsets.all(20),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          decoration: BoxDecoration(
+            color: AppColors.getCardColor(context),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -237,15 +239,15 @@ class SettingsScreen extends ConsumerWidget {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
+                    color: Colors.grey.shade400,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 'Daftar Petugas Lapangan & Admin',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textMain),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.getTextMain(context)),
               ),
               const SizedBox(height: 12),
               usersAsync.when(
@@ -268,9 +270,9 @@ class SettingsScreen extends ConsumerWidget {
                         return Container(
                           margin: const EdgeInsets.only(bottom: 8),
                           decoration: BoxDecoration(
-                            color: AppColors.backgroundLight,
+                            color: AppColors.getBackgroundColor(context),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppColors.cardBorder),
+                            border: Border.all(color: AppColors.getCardBorder(context)),
                           ),
                           child: Material(
                             color: Colors.transparent,
@@ -307,34 +309,18 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                   );
                 },
+
                 loading: () => const Center(
                   child: Padding(
                     padding: EdgeInsets.all(32),
                     child: CircularProgressIndicator(),
                   ),
                 ),
-                error: (err, _) => Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.error_outline_rounded, color: AppColors.statusRejected, size: 36),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Gagal memuat petugas: $err',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
-                        ),
-                        const SizedBox(height: 12),
-                        OutlinedButton.icon(
-                          onPressed: () => ref.invalidate(usersListProvider),
-                          icon: const Icon(Icons.refresh_rounded, size: 16),
-                          label: const Text('Coba Lagi'),
-                        ),
-                      ],
-                    ),
-                  ),
+                error: (err, _) => ErrorView.fromException(
+                  error: err,
+                  title: 'Gagal memuat petugas',
+                  useOutlinedRetry: true,
+                  onRetry: () => ref.invalidate(usersListProvider),
                 ),
               ),
             ],
@@ -357,9 +343,9 @@ class SettingsScreen extends ConsumerWidget {
             final activitiesAsync = ref.watch(activitiesListProvider);
             return Container(
           padding: const EdgeInsets.all(20),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          decoration: BoxDecoration(
+            color: AppColors.getCardColor(context),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -370,15 +356,15 @@ class SettingsScreen extends ConsumerWidget {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
+                    color: Colors.grey.shade400,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 'Riwayat Aktivitas & Audit Trail Tim',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textMain),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.getTextMain(context)),
               ),
               const SizedBox(height: 12),
               activitiesAsync.when(
@@ -407,9 +393,9 @@ class SettingsScreen extends ConsumerWidget {
                           margin: const EdgeInsets.only(bottom: 8),
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: AppColors.backgroundLight,
+                            color: AppColors.getBackgroundColor(context),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppColors.cardBorder),
+                            border: Border.all(color: AppColors.getCardBorder(context)),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -423,14 +409,14 @@ class SettingsScreen extends ConsumerWidget {
                                   ),
                                   Text(
                                     DateUtil.formatFull(act.createdAt),
-                                    style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+                                    style: TextStyle(fontSize: 10, color: AppColors.getTextMuted(context)),
                                   ),
                                 ],
                               ),
                               const SizedBox(height: 4),
                               Text(
                                 act.judulKendala,
-                                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: AppColors.getTextMain(context)),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -481,7 +467,7 @@ class SettingsScreen extends ConsumerWidget {
                                   ),
                                   Text(
                                     '• Oleh: ${act.olehUserNama}',
-                                    style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+                                    style: TextStyle(fontSize: 10, color: AppColors.getTextMuted(context)),
                                   ),
                                 ],
                               ),
@@ -489,7 +475,11 @@ class SettingsScreen extends ConsumerWidget {
                                 const SizedBox(height: 4),
                                 Text(
                                   '"${act.catatanTindakan}"',
-                                  style: TextStyle(fontSize: 11, color: Colors.grey.shade700, fontStyle: FontStyle.italic),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: AppColors.isDark(context) ? Colors.white70 : Colors.grey.shade700,
+                                    fontStyle: FontStyle.italic,
+                                  ),
                                 ),
                               ],
                             ],
@@ -499,34 +489,18 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                   );
                 },
+
                 loading: () => const Center(
                   child: Padding(
                     padding: EdgeInsets.all(32),
                     child: CircularProgressIndicator(),
                   ),
                 ),
-                error: (err, _) => Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.error_outline_rounded, color: AppColors.statusRejected, size: 36),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Gagal memuat riwayat aktivitas: $err',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
-                        ),
-                        const SizedBox(height: 12),
-                        OutlinedButton.icon(
-                          onPressed: () => ref.invalidate(activitiesListProvider),
-                          icon: const Icon(Icons.refresh_rounded, size: 16),
-                          label: const Text('Coba Lagi'),
-                        ),
-                      ],
-                    ),
-                  ),
+                error: (err, _) => ErrorView.fromException(
+                  error: err,
+                  title: 'Gagal memuat riwayat aktivitas',
+                  useOutlinedRetry: true,
+                  onRetry: () => ref.invalidate(activitiesListProvider),
                 ),
               ),
             ],
@@ -544,9 +518,15 @@ class SettingsScreen extends ConsumerWidget {
     final user = authState.user;
 
     return Scaffold(
-      backgroundColor: AppColors.backgroundLight,
+      backgroundColor: AppColors.getBackgroundColor(context),
       appBar: AppBar(
-        title: const Text('Pengaturan & Profil'),
+        title: Text(
+          'Pengaturan & Profil',
+          style: TextStyle(
+            color: AppColors.getTextMain(context),
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -556,9 +536,9 @@ class SettingsScreen extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.getCardColor(context),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppColors.cardBorder),
+                border: Border.all(color: AppColors.getCardBorder(context)),
                 boxShadow: [
                   BoxShadow(
                     color: AppColors.primary.withValues(alpha: 0.05),
@@ -584,18 +564,18 @@ class SettingsScreen extends ConsumerWidget {
                       children: [
                         Text(
                           user?.nama ?? 'Pengguna',
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textMain),
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.getTextMain(context)),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           user?.email ?? '-',
-                          style: const TextStyle(fontSize: 13, color: AppColors.textMuted),
+                          style: TextStyle(fontSize: 13, color: AppColors.getTextMuted(context)),
                         ),
                         const SizedBox(height: 6),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: AppColors.primaryContainer,
+                            color: AppColors.isDark(context) ? AppColors.primary.withValues(alpha: 0.25) : AppColors.primaryContainer,
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
@@ -609,6 +589,7 @@ class SettingsScreen extends ConsumerWidget {
                 ],
               ),
             ),
+
 
             const SizedBox(height: 20),
 

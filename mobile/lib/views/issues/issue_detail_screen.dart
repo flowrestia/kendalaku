@@ -1,12 +1,14 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/date_util.dart';
 import '../../core/utils/icon_util.dart';
+import '../../core/utils/error_mapper.dart';
 import '../../data/models/models.dart';
 import '../../providers/app_providers.dart';
 import '../widgets/badges.dart';
+import '../widgets/error_view.dart';
 import '../widgets/reassign_modal.dart';
 import '../widgets/status_transition_modal.dart';
 import '../widgets/whatsapp_preview_sheet.dart';
@@ -58,26 +60,12 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                 ),
               );
             }
-          } on DioException catch (dioErr) {
-            String msg = 'Gagal memperbarui status kendala';
-            if (dioErr.response?.statusCode == 403) {
-              msg = 'Anda tidak memiliki hak akses untuk mengubah kendala ini (khusus petugas yang ditugaskan).';
-            } else if (dioErr.response?.data is Map && dioErr.response?.data['error'] != null) {
-              msg = dioErr.response?.data['error']['message'] ?? msg;
-            }
+          } catch (err) {
+            final msg = ErrorMapper.getMessage(err);
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(msg),
-                  backgroundColor: AppColors.statusRejected,
-                ),
-              );
-            }
-          } catch (e) {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Terjadi kesalahan: $e'),
                   backgroundColor: AppColors.statusRejected,
                 ),
               );
@@ -130,7 +118,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Gagal mengirim komentar: $e'),
+            content: Text(ErrorMapper.getMessage(e)),
             backgroundColor: AppColors.statusRejected,
           ),
         );
@@ -148,12 +136,13 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
     final transitionsAsync = ref.watch(issueTransitionsProvider(widget.issueId));
     final commentsAsync = ref.watch(issueCommentsProvider(widget.issueId));
     final authState = ref.watch(authProvider);
-
     final currentUser = authState.user;
     final isAdmin = currentUser?.role == 'admin';
 
+    final isDark = AppColors.isDark(context);
+
     return Scaffold(
-      backgroundColor: AppColors.backgroundLight,
+      backgroundColor: AppColors.getBackgroundColor(context),
       appBar: AppBar(
         title: const Text('Detail Kendala'),
         actions: [
@@ -224,18 +213,22 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFFEF3C7),
+                              color: isDark ? const Color(0xFF451A03) : const Color(0xFFFEF3C7),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0xFFFDE68A)),
+                              border: Border.all(color: isDark ? const Color(0xFF78350F) : const Color(0xFFFDE68A)),
                             ),
-                            child: const Row(
+                            child: Row(
                               children: [
-                                Icon(Icons.lock_outline_rounded, color: Color(0xFFB45309), size: 18),
-                                SizedBox(width: 10),
+                                const Icon(Icons.lock_outline_rounded, color: Color(0xFFF59E0B), size: 18),
+                                const SizedBox(width: 10),
                                 Expanded(
                                   child: Text(
                                     'Anda sedang melihat kendala petugas lain. Aksi ubah status dinonaktifkan.',
-                                    style: TextStyle(fontSize: 12, color: Color(0xFF92400E), fontWeight: FontWeight.w600),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: isDark ? const Color(0xFFFDE68A) : const Color(0xFF92400E),
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -248,12 +241,12 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: AppColors.getCardColor(context),
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: AppColors.cardBorder),
+                            border: Border.all(color: AppColors.getCardBorder(context)),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.02),
+                                color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.02),
                                 blurRadius: 8,
                                 offset: const Offset(0, 2),
                               ),
@@ -279,24 +272,24 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                               const SizedBox(height: 12),
                               Text(
                                 issue.judul,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.w800,
-                                  color: AppColors.textMain,
+                                  color: AppColors.getTextMain(context),
                                   letterSpacing: -0.3,
                                 ),
                               ),
                               const SizedBox(height: 8),
                               Text(
                                 issue.deskripsi,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 14,
-                                  color: AppColors.textMuted,
+                                  color: AppColors.getTextMuted(context),
                                   height: 1.5,
                                 ),
                               ),
                               const SizedBox(height: 16),
-                              const Divider(color: AppColors.cardBorder),
+                              Divider(color: AppColors.getCardBorder(context)),
                               const SizedBox(height: 12),
 
                               // Badges Row
@@ -307,7 +300,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                     decoration: BoxDecoration(
-                                      color: AppColors.fromHex(issue.categoryWarnaHex).withValues(alpha: 0.12),
+                                      color: AppColors.fromHex(issue.categoryWarnaHex).withValues(alpha: isDark ? 0.22 : 0.12),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Row(
@@ -341,9 +334,9 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: AppColors.getCardColor(context),
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: AppColors.cardBorder),
+                            border: Border.all(color: AppColors.getCardBorder(context)),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -351,9 +344,13 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  const Text(
+                                  Text(
                                     'Pelaporan & Penugasan',
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                      color: AppColors.getTextMain(context),
+                                    ),
                                   ),
                                   if (isAdmin && !isDone)
                                     InkWell(
@@ -428,9 +425,9 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                           Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: AppColors.statusResolvedBg,
+                              color: isDark ? const Color(0xFF064E3B).withValues(alpha: 0.3) : AppColors.statusResolvedBg,
                               borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: AppColors.statusResolved.withValues(alpha: 0.3)),
+                              border: Border.all(color: AppColors.statusResolved.withValues(alpha: isDark ? 0.4 : 0.3)),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -452,7 +449,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                                 const SizedBox(height: 8),
                                 Text(
                                   issue.catatanPenyelesaian!,
-                                  style: const TextStyle(fontSize: 13, color: AppColors.textMain, height: 1.4),
+                                  style: TextStyle(fontSize: 13, color: AppColors.getTextMain(context), height: 1.4),
                                 ),
                               ],
                             ),
@@ -464,16 +461,20 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: AppColors.getCardColor(context),
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: AppColors.cardBorder),
+                            border: Border.all(color: AppColors.getCardBorder(context)),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
+                              Text(
                                 'Informasi Pesanan Terkait',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: AppColors.getTextMain(context),
+                                ),
                               ),
                               const SizedBox(height: 12),
                               _buildDetailRow(Icons.receipt_rounded, 'Nomor Pesanan', issue.kodePesanan),
@@ -489,9 +490,13 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                         const SizedBox(height: 24),
 
                         // Riwayat & Diskusi (Gabungan Transisi Status & Komentar)
-                        const Text(
+                        Text(
                           'Riwayat & Diskusi Tim',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.textMain),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: AppColors.getTextMain(context),
+                          ),
                         ),
                         const SizedBox(height: 12),
 
@@ -510,7 +515,11 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(child: Text('Gagal: $err')),
+        error: (err, _) => ErrorView.fromException(
+          error: err,
+          onRetry: () => ref.invalidate(issueDetailProvider(widget.issueId)),
+          onHome: () => context.go('/issues'),
+        ),
       ),
     );
   }
@@ -565,15 +574,17 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.getCardColor(context),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.cardBorder),
+          border: Border.all(color: AppColors.getCardBorder(context)),
         ),
-        child: const Center(
-          child: Text('Belum ada riwayat aktivitas atau komentar.', style: TextStyle(color: AppColors.textMuted)),
+        child: Center(
+          child: Text('Belum ada riwayat aktivitas atau komentar.', style: TextStyle(color: AppColors.getTextMuted(context))),
         ),
       );
     }
+
+    final isDark = AppColors.isDark(context);
 
     return Column(
       children: items.asMap().entries.map((entry) {
@@ -591,7 +602,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                   Container(
                     width: 2,
                     height: 52,
-                    color: Colors.grey.shade300,
+                    color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
                   ),
               ],
             ),
@@ -617,7 +628,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
           decoration: BoxDecoration(
             color: AppColors.getStatusColor(item.statusBaru ?? ''),
             shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: 2),
+            border: Border.all(color: AppColors.getCardColor(context), width: 2),
             boxShadow: [
               BoxShadow(
                 color: AppColors.getStatusColor(item.statusBaru ?? '').withValues(alpha: 0.3),
@@ -633,7 +644,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
           decoration: BoxDecoration(
             color: const Color(0xFF6366F1),
             shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: 2),
+            border: Border.all(color: AppColors.getCardColor(context), width: 2),
           ),
           child: const Icon(Icons.sync_alt_rounded, color: Colors.white, size: 10),
         );
@@ -644,7 +655,7 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
           decoration: BoxDecoration(
             color: AppColors.primary,
             shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: 2),
+            border: Border.all(color: AppColors.getCardColor(context), width: 2),
           ),
           child: const Icon(Icons.chat_bubble_outline_rounded, color: Colors.white, size: 9),
         );
@@ -652,13 +663,15 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
   }
 
   Widget _buildTimelineContent(_TimelineItem item) {
+    final isDark = AppColors.isDark(context);
+
     if (item.type == _TimelineItemType.systemComment) {
       return Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: const Color(0xFFEEF2FF),
+          color: isDark ? const Color(0xFF1E1B4B) : const Color(0xFFEEF2FF),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFC7D2FE)),
+          border: Border.all(color: isDark ? const Color(0xFF3730A3) : const Color(0xFFC7D2FE)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -668,24 +681,32 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.info_outline_rounded, size: 14, color: Color(0xFF4F46E5)),
+                    const Icon(Icons.info_outline_rounded, size: 14, color: Color(0xFF818CF8)),
                     const SizedBox(width: 6),
                     Text(
                       item.title,
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF4338CA)),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? const Color(0xFFA5B4FC) : const Color(0xFF4338CA),
+                      ),
                     ),
                   ],
                 ),
                 Text(
                   DateUtil.formatShort(item.rawTimeStr),
-                  style: const TextStyle(fontSize: 10, color: Color(0xFF6366F1)),
+                  style: TextStyle(fontSize: 10, color: isDark ? const Color(0xFF818CF8) : const Color(0xFF6366F1)),
                 ),
               ],
             ),
             const SizedBox(height: 4),
             Text(
               item.content,
-              style: const TextStyle(fontSize: 12, color: Color(0xFF312E81), fontWeight: FontWeight.w500),
+              style: TextStyle(
+                fontSize: 12,
+                color: isDark ? const Color(0xFFE0E7FF) : const Color(0xFF312E81),
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ],
         ),
@@ -696,12 +717,12 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
       return Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.getCardColor(context),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.cardBorder),
+          border: Border.all(color: AppColors.getCardBorder(context)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.02),
+              color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.02),
               blurRadius: 6,
               offset: const Offset(0, 2),
             ),
@@ -719,14 +740,14 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
                 ),
                 Text(
                   DateUtil.formatShort(item.rawTimeStr),
-                  style: const TextStyle(fontSize: 10, color: AppColors.textMuted),
+                  style: TextStyle(fontSize: 10, color: AppColors.getTextMuted(context)),
                 ),
               ],
             ),
             const SizedBox(height: 4),
             Text(
               item.content,
-              style: const TextStyle(fontSize: 13, color: AppColors.textMain),
+              style: TextStyle(fontSize: 13, color: AppColors.getTextMain(context)),
             ),
           ],
         ),
@@ -737,9 +758,9 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.getCardColor(context),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.cardBorder),
+        border: Border.all(color: AppColors.getCardBorder(context)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -750,19 +771,19 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
               StatusBadge(status: item.statusBaru ?? '', fontSize: 10),
               Text(
                 DateUtil.formatShort(item.rawTimeStr),
-                style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                style: TextStyle(fontSize: 11, color: AppColors.getTextMuted(context)),
               ),
             ],
           ),
           const SizedBox(height: 6),
           Text(
             item.content,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textMain),
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.getTextMain(context)),
           ),
           const SizedBox(height: 2),
           Text(
             'Oleh: ${item.author}',
-            style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+            style: TextStyle(fontSize: 11, color: AppColors.getTextMuted(context)),
           ),
         ],
       ),
@@ -771,6 +792,8 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
 
   // Kolom Tulis Komentar Menempel di Bawah (Sticky Comment Bar)
   Widget _buildBottomCommentBar() {
+    final isDark = AppColors.isDark(context);
+
     return Container(
       padding: EdgeInsets.only(
         left: 16,
@@ -781,11 +804,11 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
             : MediaQuery.of(context).padding.bottom + 10,
       ),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: const Border(top: BorderSide(color: AppColors.cardBorder)),
+        color: AppColors.getCardColor(context),
+        border: Border(top: BorderSide(color: AppColors.getCardBorder(context))),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
             blurRadius: 10,
             offset: const Offset(0, -3),
           ),
@@ -799,21 +822,25 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  color: AppColors.backgroundLight,
+                  color: isDark ? const Color(0xFF131D31) : AppColors.backgroundLight,
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: AppColors.cardBorder),
+                  border: Border.all(color: AppColors.getCardBorder(context)),
                 ),
                 child: TextField(
                   controller: _commentController,
                   maxLines: 3,
                   minLines: 1,
                   maxLength: 1000,
+                  style: TextStyle(fontSize: 13, color: AppColors.getTextMain(context)),
                   buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     hintText: 'Tulis komentar atau update...',
-                    hintStyle: TextStyle(fontSize: 13, color: AppColors.textMuted),
+                    hintStyle: TextStyle(
+                      fontSize: 13,
+                      color: isDark ? Colors.white54 : AppColors.textMuted,
+                    ),
                     border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   ),
                 ),
               ),
@@ -846,14 +873,14 @@ class _IssueDetailScreenState extends ConsumerState<IssueDetailScreen> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Icon(icon, size: 16, color: AppColors.textMuted),
+        Icon(icon, size: 16, color: AppColors.getTextMuted(context)),
         const SizedBox(width: 8),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
-              Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textMain)),
+              Text(label, style: TextStyle(fontSize: 11, color: AppColors.getTextMuted(context))),
+              Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.getTextMain(context))),
             ],
           ),
         ),

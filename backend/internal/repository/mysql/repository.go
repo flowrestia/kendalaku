@@ -41,7 +41,7 @@ func (r *Repository) GetUserByID(id uint64) (*domain.User, error) {
 }
 
 func (r *Repository) GetAllUsers() ([]domain.User, error) {
-	var users []domain.User
+	users := make([]domain.User, 0)
 	query := "SELECT id, nama, email, role, created_at FROM users ORDER BY nama ASC"
 	err := r.db.Select(&users, query)
 	return users, err
@@ -57,7 +57,7 @@ func (r *Repository) UpdateUserPassword(id uint64, passwordHash string) error {
 // ---------------- PROBLEM CATEGORY REPOSITORY ----------------
 
 func (r *Repository) GetAllCategories(onlyActive bool) ([]domain.ProblemCategory, error) {
-	var categories []domain.ProblemCategory
+	categories := make([]domain.ProblemCategory, 0)
 	query := "SELECT id, nama, warna_hex, ikon, tenggat_jam, aktif, created_at, updated_at FROM problem_categories"
 	if onlyActive {
 		query += " WHERE aktif = 1"
@@ -114,7 +114,7 @@ func (r *Repository) DeleteCategory(id uint64) error {
 // ---------------- ORDER SIMULASI REPOSITORY ----------------
 
 func (r *Repository) GetAllOrders() ([]domain.Order, error) {
-	var orders []domain.Order
+	orders := make([]domain.Order, 0)
 	query := "SELECT id, kode_pesanan, nama_pelanggan, produk, jumlah, created_at FROM orders ORDER BY id DESC"
 	err := r.db.Select(&orders, query)
 	return orders, err
@@ -243,7 +243,7 @@ func (r *Repository) RecordTransaction(tx *sqlx.Tx, issueID uint64, statusSebelu
 }
 
 func (r *Repository) GetTransactionsByIssueID(issueID uint64) ([]domain.IssueTransaction, error) {
-	var list []domain.IssueTransaction
+	list := make([]domain.IssueTransaction, 0)
 	query := `SELECT it.id, it.issue_id, it.status_sebelumnya, it.status_baru, it.catatan_tindakan, it.oleh_user_id, it.created_at, u.nama AS nama_user
 			  FROM issue_transactions it
 			  JOIN users u ON it.oleh_user_id = u.id
@@ -373,10 +373,10 @@ func (r *Repository) ListIssues(filter domain.IssueFilter) ([]domain.OrderIssue,
 
 	args = append(args, filter.Limit, offset)
 
-	var items []domain.OrderIssue
+	items := make([]domain.OrderIssue, 0)
 	err = r.db.Select(&items, dataQuery, args...)
 	if err != nil {
-		return nil, 0, err
+		return make([]domain.OrderIssue, 0), 0, err
 	}
 
 	return items, total, nil
@@ -438,7 +438,7 @@ func (r *Repository) GetCategoryStats() ([]domain.CategoryStatResponse, error) {
 		GROUP BY c.id, c.nama, c.warna_hex, c.ikon
 		ORDER BY total DESC, c.id ASC`
 
-	var list []domain.CategoryStatResponse
+	list := make([]domain.CategoryStatResponse, 0)
 	err := r.db.Select(&list, query)
 	return list, err
 }
@@ -465,7 +465,7 @@ func (r *Repository) GetTrendData7Days() ([]TrendRow, error) {
 		GROUP BY d.dt
 		ORDER BY d.dt ASC`
 
-	var rows []TrendRow
+	rows := make([]TrendRow, 0)
 	err := r.db.Select(&rows, query)
 	return rows, err
 }
@@ -489,7 +489,7 @@ func (r *Repository) GetTrendData30Days() ([]TrendRow, error) {
 		GROUP BY d.dt
 		ORDER BY d.dt ASC`
 
-	var rows []TrendRow
+	rows := make([]TrendRow, 0)
 	err := r.db.Select(&rows, query)
 	return rows, err
 }
@@ -512,7 +512,7 @@ func (r *Repository) GetTrendData12Months() ([]TrendRow, error) {
 		GROUP BY DATE_FORMAT(d.m_first, '%Y-%m')
 		ORDER BY DATE_FORMAT(d.m_first, '%Y-%m') ASC`
 
-	var rows []TrendRow
+	rows := make([]TrendRow, 0)
 	err := r.db.Select(&rows, query)
 	return rows, err
 }
@@ -552,7 +552,7 @@ func (r *Repository) GetIssuesForReport(from, to string) ([]domain.OrderIssue, e
 		%s
 		ORDER BY oi.created_at DESC`, whereClause)
 
-	var items []domain.OrderIssue
+	items := make([]domain.OrderIssue, 0)
 	err := r.db.Select(&items, query, args...)
 	return items, err
 }
@@ -580,7 +580,7 @@ func (r *Repository) GetActivityLogs(limit int) ([]domain.ActivityLogItem, error
 		ORDER BY it.created_at DESC, it.id DESC
 		LIMIT ?`
 
-	var list []domain.ActivityLogItem
+	list := make([]domain.ActivityLogItem, 0)
 	err := r.db.Select(&list, query, limit)
 	return list, err
 }
@@ -603,7 +603,7 @@ func (r *Repository) GetCommentsByIssueID(issueID uint64) ([]domain.IssueComment
 		WHERE c.issue_id = ?
 		ORDER BY c.created_at ASC, c.id ASC`
 
-	var comments []domain.IssueComment
+	comments := make([]domain.IssueComment, 0)
 	err := r.db.Select(&comments, query, issueID)
 	return comments, err
 }
@@ -697,7 +697,7 @@ func (r *Repository) GetIssuesDueSoon(hours int) ([]domain.OrderIssue, error) {
 		  AND oi.tenggat_at <= UTC_TIMESTAMP() + INTERVAL ? HOUR
 		ORDER BY oi.tenggat_at ASC`
 
-	var list []domain.OrderIssue
+	list := make([]domain.OrderIssue, 0)
 	err := r.db.Select(&list, query, hours)
 	return list, err
 }

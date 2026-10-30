@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/error_mapper.dart';
 import '../../core/utils/web_download.dart';
 import '../../providers/app_providers.dart';
+import '../widgets/error_view.dart';
 
 class ReportsScreen extends ConsumerStatefulWidget {
   const ReportsScreen({super.key});
@@ -72,7 +74,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Gagal mengekspor CSV: $e'),
+            content: Text(ErrorMapper.getMessage(e)),
             backgroundColor: AppColors.statusRejected,
           ),
         );
@@ -87,8 +89,10 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
     final reportAsync = ref.watch(reportRecapProvider);
     final rangeState = ref.watch(reportDateRangeProvider);
 
+    final isDark = AppColors.isDark(context);
+
     return Scaffold(
-      backgroundColor: AppColors.backgroundLight,
+      backgroundColor: AppColors.getBackgroundColor(context),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async {
@@ -103,16 +107,20 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Column(
+                    Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           'Rekap & Laporan',
-                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.textMain),
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.getTextMain(context),
+                          ),
                         ),
                         Text(
                           'Analitik berkala dan performa operasional',
-                          style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                          style: TextStyle(fontSize: 12, color: AppColors.getTextMuted(context)),
                         ),
                       ],
                     ),
@@ -140,16 +148,16 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.getCardColor(context),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.cardBorder),
+                    border: Border.all(color: AppColors.getCardBorder(context)),
                   ),
                   child: Row(
                     children: [
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: AppColors.primaryContainer,
+                          color: isDark ? const Color(0xFF1E3A8A).withValues(alpha: 0.3) : AppColors.primaryContainer,
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Icon(Icons.date_range_rounded, color: AppColors.primary, size: 20),
@@ -159,19 +167,19 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Rentang Waktu Laporan', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                            Text('Rentang Waktu Laporan', style: TextStyle(fontSize: 11, color: AppColors.getTextMuted(context))),
                             Text(
                               rangeState.from != null && rangeState.to != null
                                   ? '${DateFormat('dd MMM yyyy').format(rangeState.from!)} - ${DateFormat('dd MMM yyyy').format(rangeState.to!)}'
                                   : 'Semua Periode (Keseluruhan Data)',
-                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textMain),
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.getTextMain(context)),
                             ),
                           ],
                         ),
                       ),
                       if (rangeState.from != null)
                         IconButton(
-                          icon: const Icon(Icons.clear_rounded, size: 18, color: AppColors.textMuted),
+                          icon: Icon(Icons.clear_rounded, size: 18, color: AppColors.getTextMuted(context)),
                           onPressed: () {
                             ref.read(reportDateRangeProvider.notifier).clear();
                           },
@@ -199,15 +207,18 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+                            gradient: LinearGradient(
+                              colors: isDark
+                                  ? [const Color(0xFF1E293B), const Color(0xFF0F172A)]
+                                  : [const Color(0xFF0F172A), const Color(0xFF1E293B)],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
                             borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: AppColors.getCardBorder(context)),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.1),
+                                color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.1),
                                 blurRadius: 10,
                                 offset: const Offset(0, 4),
                               ),
@@ -265,39 +276,39 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                         const SizedBox(height: 20),
 
                         // Rekap Status Global
-                        const Text(
+                        Text(
                           'Ringkasan Status Penanganan',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textMain),
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.getTextMain(context)),
                         ),
                         const SizedBox(height: 10),
                         Row(
                           children: [
-                            _buildMiniStatusCard('Baru', recap.rekapStatus.baru, AppColors.statusNew, AppColors.statusNewBg),
+                            _buildMiniStatusCard('Baru', recap.rekapStatus.baru, AppColors.statusNew, isDark ? AppColors.statusNew.withValues(alpha: 0.15) : AppColors.statusNewBg),
                             const SizedBox(width: 8),
-                            _buildMiniStatusCard('Proses', recap.rekapStatus.sedangDiproses, AppColors.statusProcessing, AppColors.statusProcessingBg),
+                            _buildMiniStatusCard('Proses', recap.rekapStatus.sedangDiproses, AppColors.statusProcessing, isDark ? AppColors.statusProcessing.withValues(alpha: 0.15) : AppColors.statusProcessingBg),
                             const SizedBox(width: 8),
-                            _buildMiniStatusCard('Menunggu', recap.rekapStatus.menungguInformasi, AppColors.statusWaiting, AppColors.statusWaitingBg),
+                            _buildMiniStatusCard('Menunggu', recap.rekapStatus.menungguInformasi, AppColors.statusWaiting, isDark ? AppColors.statusWaiting.withValues(alpha: 0.15) : AppColors.statusWaitingBg),
                             const SizedBox(width: 8),
-                            _buildMiniStatusCard('Selesai', recap.rekapStatus.selesai, AppColors.statusResolved, AppColors.statusResolvedBg),
+                            _buildMiniStatusCard('Selesai', recap.rekapStatus.selesai, AppColors.statusResolved, isDark ? AppColors.statusResolved.withValues(alpha: 0.15) : AppColors.statusResolvedBg),
                             const SizedBox(width: 8),
-                            _buildMiniStatusCard('Ditolak', recap.rekapStatus.ditolak, AppColors.statusRejected, AppColors.statusRejectedBg),
+                            _buildMiniStatusCard('Ditolak', recap.rekapStatus.ditolak, AppColors.statusRejected, isDark ? AppColors.statusRejected.withValues(alpha: 0.15) : AppColors.statusRejectedBg),
                           ],
                         ),
 
                         const SizedBox(height: 24),
 
                         // Rincian per Kategori
-                        const Text(
+                        Text(
                           'Rincian per Kategori Masalah',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textMain),
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.getTextMain(context)),
                         ),
                         const SizedBox(height: 10),
 
                         if (recap.perKategori.isEmpty)
-                          const Center(
+                          Center(
                             child: Padding(
-                              padding: EdgeInsets.all(32),
-                              child: Text('Tidak ada data pada periode ini'),
+                              padding: const EdgeInsets.all(32),
+                              child: Text('Tidak ada data pada periode ini', style: TextStyle(color: AppColors.getTextMuted(context))),
                             ),
                           )
                         else
@@ -307,9 +318,9 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                               margin: const EdgeInsets.only(bottom: 12),
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                color: Colors.white,
+                                color: AppColors.getCardColor(context),
                                 borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: AppColors.cardBorder),
+                                border: Border.all(color: AppColors.getCardBorder(context)),
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -327,19 +338,27 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                                           const SizedBox(width: 8),
                                           Text(
                                             kat.nama,
-                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                              color: AppColors.getTextMain(context),
+                                            ),
                                           ),
                                         ],
                                       ),
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                         decoration: BoxDecoration(
-                                          color: color.withValues(alpha: 0.1),
+                                          color: color.withValues(alpha: isDark ? 0.2 : 0.1),
                                           borderRadius: BorderRadius.circular(8),
                                         ),
                                         child: Text(
                                           '${kat.total} Kasus',
-                                          style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12),
+                                          style: TextStyle(
+                                            color: isDark ? Colors.white : color,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12,
+                                          ),
                                         ),
                                       ),
                                     ],
@@ -348,9 +367,9 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Text('Baru: ${kat.status.baru}', style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
-                                      Text('Diproses: ${kat.status.sedangDiproses}', style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
-                                      Text('Menunggu: ${kat.status.menungguInformasi}', style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                                      Text('Baru: ${kat.status.baru}', style: TextStyle(fontSize: 11, color: AppColors.getTextMuted(context))),
+                                      Text('Diproses: ${kat.status.sedangDiproses}', style: TextStyle(fontSize: 11, color: AppColors.getTextMuted(context))),
+                                      Text('Menunggu: ${kat.status.menungguInformasi}', style: TextStyle(fontSize: 11, color: AppColors.getTextMuted(context))),
                                       Text('Selesai: ${kat.status.selesai}', style: const TextStyle(fontSize: 11, color: AppColors.statusResolved, fontWeight: FontWeight.bold)),
                                       Text('Ditolak: ${kat.status.ditolak}', style: const TextStyle(fontSize: 11, color: AppColors.statusRejected)),
                                     ],
@@ -368,22 +387,9 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                       child: CircularProgressIndicator(),
                     ),
                   ),
-                  error: (err, _) => Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        children: [
-                          const Icon(Icons.error_outline_rounded, size: 40, color: AppColors.statusRejected),
-                          const SizedBox(height: 10),
-                          Text('Gagal memuat laporan: $err', style: const TextStyle(color: AppColors.statusRejected)),
-                          const SizedBox(height: 12),
-                          ElevatedButton(
-                            onPressed: () => ref.invalidate(reportRecapProvider),
-                            child: const Text('Coba Lagi'),
-                          ),
-                        ],
-                      ),
-                    ),
+                  error: (err, _) => ErrorView.fromException(
+                    error: err,
+                    onRetry: () => ref.invalidate(reportRecapProvider),
                   ),
                 ),
               ],

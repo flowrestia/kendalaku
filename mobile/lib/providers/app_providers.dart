@@ -2,12 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/network/api_client.dart';
+import '../../core/utils/error_mapper.dart';
 import '../../data/models/models.dart';
 import '../../data/repositories/kendala_repository.dart';
 
-
 // ApiClient & Repository Provider
-final apiClientProvider = Provider<ApiClient>((ref) => ApiClient());
+final apiClientProvider = Provider<ApiClient>((ref) {
+  final client = ApiClient();
+  ApiClient.onUnauthorized = () {
+    ref.read(authProvider.notifier).logout();
+  };
+  return client;
+});
 
 final repositoryProvider = Provider<KendalaRepository>((ref) {
   final client = ref.watch(apiClientProvider);
@@ -86,7 +92,7 @@ class AuthNotifier extends Notifier<AuthState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        errorMessage: e.toString().replaceFirst('Exception: ', ''),
+        errorMessage: ErrorMapper.getMessage(e),
       );
       return false;
     }

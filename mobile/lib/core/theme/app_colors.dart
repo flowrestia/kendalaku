@@ -45,8 +45,53 @@ class AppColors {
 
   // Dark Theme Tokens
   static const Color backgroundDark = Color(0xFF0F172A);
+  static const Color backgroundGradientDarkStart = Color(0xFF0F172A);
+  static const Color backgroundGradientDarkEnd = Color(0xFF111827);
   static const Color surfaceDark = Color(0xFF1E293B);
   static const Color cardBorderDark = Color(0xFF334155);
+  static const Color textMainDark = Colors.white;
+  static const Color textMutedDark = Color(0xFF94A3B8);
+
+  // Helper Theme Awareness
+  static bool isDark(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark;
+  }
+
+  static Color getBackgroundColor(BuildContext context) {
+    return isDark(context) ? backgroundDark : backgroundLight;
+  }
+
+  static Color getCardColor(BuildContext context) {
+    return isDark(context) ? surfaceDark : surfaceLight;
+  }
+
+  static Color getCardBorder(BuildContext context) {
+    return isDark(context) ? cardBorderDark : cardBorder;
+  }
+
+  static Color getTextMain(BuildContext context) {
+    return isDark(context) ? textMainDark : textMain;
+  }
+
+  static Color getTextMuted(BuildContext context) {
+    return isDark(context) ? textMutedDark : textMuted;
+  }
+
+  static List<Color> getBackgroundGradient(BuildContext context) {
+    if (isDark(context)) {
+      return [
+        backgroundGradientDarkStart,
+        backgroundDark,
+        backgroundGradientDarkEnd,
+      ];
+    }
+    return [
+      backgroundGradientStart,
+      backgroundLight,
+      backgroundGradientEnd,
+    ];
+  }
+
 
   // Helper parser Hex string ke Color
   static Color fromHex(String hexString, {Color defaultColor = primary}) {

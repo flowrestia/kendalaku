@@ -29,21 +29,21 @@ class KendalaRepository {
   // Users: Petugas / Staf
   Future<List<User>> getUsers() async {
     final response = await apiClient.dio.get('/users');
-    final list = response.data['data'] as List;
+    final list = (response.data['data'] as List?) ?? const [];
     return list.map((e) => User.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   // Categories
   Future<List<ProblemCategory>> getCategories() async {
     final response = await apiClient.dio.get('/categories');
-    final list = response.data['data'] as List;
+    final list = (response.data['data'] as List?) ?? const [];
     return list.map((e) => ProblemCategory.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   // Orders Simulasi
   Future<List<Order>> getOrders() async {
     final response = await apiClient.dio.get('/orders');
-    final list = response.data['data'] as List;
+    final list = (response.data['data'] as List?) ?? const [];
     return list.map((e) => Order.fromJson(e as Map<String, dynamic>)).toList();
   }
 
@@ -76,10 +76,10 @@ class KendalaRepository {
       queryParameters: queryParams,
     );
 
-    final data = response.data['data'] as Map<String, dynamic>;
-    final itemsList = data['items'] as List;
+    final data = response.data['data'] as Map<String, dynamic>? ?? {};
+    final itemsList = (data['items'] as List?) ?? const [];
     final items = itemsList.map((e) => OrderIssue.fromJson(e as Map<String, dynamic>)).toList();
-    final total = data['total'] as int? ?? 0;
+    final total = data['total'] as int? ?? items.length;
 
     return {'items': items, 'total': total};
   }
@@ -139,7 +139,7 @@ class KendalaRepository {
   // Issues: Transitions History
   Future<List<IssueTransaction>> getIssueTransitions(int id) async {
     final response = await apiClient.dio.get('/issues/$id/transitions');
-    final list = response.data['data'] as List;
+    final list = (response.data['data'] as List?) ?? const [];
     return list.map((e) => IssueTransaction.fromJson(e as Map<String, dynamic>)).toList();
   }
 
@@ -214,13 +214,13 @@ class KendalaRepository {
 
   Future<List<CategoryStat>> getDashboardByCategory() async {
     final response = await apiClient.dio.get('/dashboard/by-category');
-    final list = response.data['data'] as List;
+    final list = (response.data['data'] as List?) ?? const [];
     return list.map((e) => CategoryStat.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   Future<List<TrendPoint>> getDashboardTrend({String period = '7d'}) async {
     final response = await apiClient.dio.get('/dashboard/trend', queryParameters: {'period': period});
-    final list = response.data['data'] as List;
+    final list = (response.data['data'] as List?) ?? const [];
     return list.map((e) => TrendPoint.fromJson(e as Map<String, dynamic>)).toList();
   }
 
@@ -248,7 +248,7 @@ class KendalaRepository {
   // Activities API
   Future<List<ActivityLogItem>> getActivities({int limit = 50}) async {
     final response = await apiClient.dio.get('/activities', queryParameters: {'limit': limit});
-    final list = response.data['data'] as List;
+    final list = (response.data['data'] as List?) ?? const [];
     return list.map((e) => ActivityLogItem.fromJson(e as Map<String, dynamic>)).toList();
   }
 
@@ -291,7 +291,7 @@ class KendalaRepository {
   // Komentar: GET /issues/:id/comments
   Future<List<IssueComment>> getComments(int issueId) async {
     final response = await apiClient.dio.get('/issues/$issueId/comments');
-    final list = response.data['data'] as List;
+    final list = (response.data['data'] as List?) ?? const [];
     return list.map((e) => IssueComment.fromJson(e as Map<String, dynamic>)).toList();
   }
 
@@ -322,7 +322,7 @@ class KendalaRepository {
       '/dashboard/due-soon',
       queryParameters: {'hours': hours},
     );
-    final list = response.data['data'] as List;
+    final list = (response.data['data'] as List?) ?? const [];
     return list.map((e) => OrderIssue.fromJson(e as Map<String, dynamic>)).toList();
   }
 
@@ -337,4 +337,3 @@ class KendalaRepository {
     );
   }
 }
-

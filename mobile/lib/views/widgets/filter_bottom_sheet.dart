@@ -33,12 +33,13 @@ class _FilterBottomSheetState extends ConsumerState<FilterBottomSheet> {
   @override
   Widget build(BuildContext context) {
     final categoriesAsync = ref.watch(categoriesProvider);
+    final isDark = AppColors.isDark(context);
 
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: AppColors.getCardColor(context),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: SingleChildScrollView(
         child: Column(
@@ -51,7 +52,7 @@ class _FilterBottomSheetState extends ConsumerState<FilterBottomSheet> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
+                  color: isDark ? const Color(0xFF475569) : Colors.grey.shade300,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -61,9 +62,9 @@ class _FilterBottomSheetState extends ConsumerState<FilterBottomSheet> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'Filter Kendala Pesanan',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.getTextMain(context)),
                 ),
                 TextButton(
                   onPressed: () {
@@ -81,7 +82,7 @@ class _FilterBottomSheetState extends ConsumerState<FilterBottomSheet> {
             const SizedBox(height: 12),
 
             // Status Filter Chips
-            const Text('Status', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textMuted)),
+            Text('Status', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.getTextMuted(context))),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -92,9 +93,10 @@ class _FilterBottomSheetState extends ConsumerState<FilterBottomSheet> {
                 return ChoiceChip(
                   label: Text(IconUtil.getStatusLabel(st)),
                   selected: isSelected,
-                  selectedColor: color.withValues(alpha: 0.2),
+                  selectedColor: color.withValues(alpha: isDark ? 0.35 : 0.2),
+                  backgroundColor: AppColors.getCardColor(context),
                   labelStyle: TextStyle(
-                    color: isSelected ? color : AppColors.textMain,
+                    color: isSelected ? (isDark ? Colors.white : color) : AppColors.getTextMain(context),
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                     fontSize: 12,
                   ),
@@ -107,7 +109,7 @@ class _FilterBottomSheetState extends ConsumerState<FilterBottomSheet> {
             const SizedBox(height: 16),
 
             // Prioritas Filter Chips
-            const Text('Prioritas', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textMuted)),
+            Text('Prioritas', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.getTextMuted(context))),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -118,9 +120,10 @@ class _FilterBottomSheetState extends ConsumerState<FilterBottomSheet> {
                 return ChoiceChip(
                   label: Text(IconUtil.getPriorityLabel(pr)),
                   selected: isSelected,
-                  selectedColor: color.withValues(alpha: 0.2),
+                  selectedColor: color.withValues(alpha: isDark ? 0.35 : 0.2),
+                  backgroundColor: AppColors.getCardColor(context),
                   labelStyle: TextStyle(
-                    color: isSelected ? color : AppColors.textMain,
+                    color: isSelected ? (isDark ? Colors.white : color) : AppColors.getTextMain(context),
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                     fontSize: 12,
                   ),
@@ -136,13 +139,13 @@ class _FilterBottomSheetState extends ConsumerState<FilterBottomSheet> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.alarm_on_rounded, size: 18, color: AppColors.statusRejected),
-                    SizedBox(width: 8),
+                    const Icon(Icons.alarm_on_rounded, size: 18, color: AppColors.statusRejected),
+                    const SizedBox(width: 8),
                     Text(
                       'Hanya yang Melewati Tenggat (Overdue)',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.getTextMain(context)),
                     ),
                   ],
                 ),
@@ -158,17 +161,24 @@ class _FilterBottomSheetState extends ConsumerState<FilterBottomSheet> {
             const SizedBox(height: 16),
 
             // Kategori Dropdown
-            const Text('Kategori Masalah', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textMuted)),
+            Text('Kategori Masalah', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.getTextMuted(context))),
             const SizedBox(height: 8),
             categoriesAsync.when(
               data: (cats) => DropdownButtonFormField<int>(
                 initialValue: _selectedCategory,
-                decoration: const InputDecoration(hintText: 'Semua Kategori'),
+                dropdownColor: AppColors.getCardColor(context),
+                decoration: InputDecoration(
+                  hintText: 'Semua Kategori',
+                  hintStyle: TextStyle(color: isDark ? Colors.white54 : AppColors.textMuted),
+                ),
                 items: [
-                  const DropdownMenuItem<int>(value: null, child: Text('Semua Kategori')),
+                  DropdownMenuItem<int>(
+                    value: null,
+                    child: Text('Semua Kategori', style: TextStyle(color: AppColors.getTextMain(context))),
+                  ),
                   ...cats.map((c) => DropdownMenuItem<int>(
                     value: c.id,
-                    child: Text(c.nama),
+                    child: Text(c.nama, style: TextStyle(color: AppColors.getTextMain(context))),
                   )),
                 ],
                 onChanged: (val) => setState(() => _selectedCategory = val),

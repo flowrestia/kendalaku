@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/error_mapper.dart';
 import '../../core/utils/icon_util.dart';
 import 'badges.dart';
 
@@ -59,6 +60,7 @@ class _StatusTransitionModalState extends State<StatusTransitionModal> {
   @override
   Widget build(BuildContext context) {
     final validStatuses = StatusTransitionModal.getValidNextStatuses(widget.currentStatus);
+    final isDark = AppColors.isDark(context);
 
     return Container(
       padding: EdgeInsets.only(
@@ -67,9 +69,9 @@ class _StatusTransitionModalState extends State<StatusTransitionModal> {
         top: 20,
         bottom: MediaQuery.of(context).viewInsets.bottom + 24,
       ),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: AppColors.getCardColor(context),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Form(
         key: _formKey,
@@ -84,7 +86,7 @@ class _StatusTransitionModalState extends State<StatusTransitionModal> {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
+                    color: isDark ? const Color(0xFF475569) : Colors.grey.shade300,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -95,12 +97,12 @@ class _StatusTransitionModalState extends State<StatusTransitionModal> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                  Text(
                     'Transisi Status Penanganan',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: AppColors.textMain,
+                      color: AppColors.getTextMain(context),
                     ),
                   ),
                   StatusBadge(status: widget.currentStatus),
@@ -112,17 +114,17 @@ class _StatusTransitionModalState extends State<StatusTransitionModal> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
+                    color: isDark ? const Color(0xFF131D31) : Colors.grey.shade100,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Row(
+                  child: Row(
                     children: [
-                      Icon(Icons.info_outline, color: AppColors.textMuted),
-                      SizedBox(width: 10),
+                      Icon(Icons.info_outline, color: AppColors.getTextMuted(context)),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           'Kendala telah berada pada status akhir (selesai / ditolak) dan tidak dapat ditransisikan lagi.',
-                          style: TextStyle(color: AppColors.textMuted, fontSize: 13),
+                          style: TextStyle(color: AppColors.getTextMuted(context), fontSize: 13),
                         ),
                       ),
                     ],
@@ -130,9 +132,9 @@ class _StatusTransitionModalState extends State<StatusTransitionModal> {
                 ),
                 const SizedBox(height: 20),
               ] else ...[
-                const Text(
+                Text(
                   'Pilih Status Baru (Hanya Status Valid):',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textMuted),
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.getTextMuted(context)),
                 ),
                 const SizedBox(height: 10),
 
@@ -156,10 +158,10 @@ class _StatusTransitionModalState extends State<StatusTransitionModal> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         decoration: BoxDecoration(
-                          color: isSelected ? color : color.withValues(alpha: 0.08),
+                          color: isSelected ? color : color.withValues(alpha: isDark ? 0.18 : 0.08),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: isSelected ? color : color.withValues(alpha: 0.3),
+                            color: isSelected ? color : color.withValues(alpha: isDark ? 0.35 : 0.3),
                             width: 1.5,
                           ),
                         ),
@@ -188,6 +190,7 @@ class _StatusTransitionModalState extends State<StatusTransitionModal> {
                 TextFormField(
                   controller: _catatanTindakanController,
                   maxLines: 2,
+                  style: TextStyle(color: AppColors.getTextMain(context)),
                   decoration: const InputDecoration(
                     labelText: 'Catatan Tindakan Petugas *',
                     hintText: 'Contoh: Memeriksa kondisi fisik produk di rak gudang...',
@@ -206,7 +209,7 @@ class _StatusTransitionModalState extends State<StatusTransitionModal> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppColors.statusResolvedBg,
+                      color: isDark ? const Color(0xFF064E3B).withValues(alpha: 0.3) : AppColors.statusResolvedBg,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: AppColors.statusResolved.withValues(alpha: 0.4)),
                     ),
@@ -228,12 +231,12 @@ class _StatusTransitionModalState extends State<StatusTransitionModal> {
                           ],
                         ),
                         const SizedBox(height: 8),
-                        const Text(
+                        Text(
                           'Pilihan Cepat:',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
-                            color: AppColors.textMuted,
+                            color: AppColors.getTextMuted(context),
                           ),
                         ),
                         const SizedBox(height: 6),
@@ -250,13 +253,14 @@ class _StatusTransitionModalState extends State<StatusTransitionModal> {
                             return ActionChip(
                               label: Text(
                                 template,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w500,
+                                  color: AppColors.getTextMain(context),
                                 ),
                               ),
                               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
-                              backgroundColor: Colors.white,
+                              backgroundColor: AppColors.getCardColor(context),
                               side: BorderSide(
                                 color: AppColors.statusResolved.withValues(alpha: 0.4),
                               ),
@@ -275,8 +279,9 @@ class _StatusTransitionModalState extends State<StatusTransitionModal> {
                         TextFormField(
                           controller: _catatanPenyelesaianController,
                           maxLines: 3,
-                          decoration: const InputDecoration(
-                            fillColor: Colors.white,
+                          style: TextStyle(color: AppColors.getTextMain(context)),
+                          decoration: InputDecoration(
+                            fillColor: isDark ? const Color(0xFF131D31) : Colors.white,
                             labelText: 'Catatan Penyelesaian *',
                             hintText: 'Jelaskan solusi akhir, tindakan penggantian/perbaikan barang...',
                           ),
@@ -315,7 +320,7 @@ class _StatusTransitionModalState extends State<StatusTransitionModal> {
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content: Text(e.toString().replaceAll('Exception: ', '')),
+                                      content: Text(ErrorMapper.getMessage(e)),
                                       backgroundColor: AppColors.statusRejected,
                                     ),
                                   );

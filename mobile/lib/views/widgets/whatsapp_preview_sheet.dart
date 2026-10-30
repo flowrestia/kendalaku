@@ -4,9 +4,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/error_mapper.dart';
 import '../../core/utils/whatsapp_util.dart';
 import '../../data/models/models.dart';
 import '../../providers/app_providers.dart';
+import 'error_view.dart';
 
 class WhatsAppPreviewSheet extends ConsumerStatefulWidget {
   final List<int>? selectedIds;
@@ -111,7 +113,7 @@ class _WhatsAppPreviewSheetState extends ConsumerState<WhatsAppPreviewSheet> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = e.toString().replaceAll('Exception: ', '');
+          _errorMessage = ErrorMapper.getMessage(e);
           _isLoading = false;
         });
       }
@@ -185,7 +187,7 @@ class _WhatsAppPreviewSheetState extends ConsumerState<WhatsAppPreviewSheet> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Gagal membuka WhatsApp: $e'),
+            content: Text(ErrorMapper.getMessage(e)),
             backgroundColor: AppColors.statusRejected,
           ),
         );
@@ -243,15 +245,16 @@ class _WhatsAppPreviewSheetState extends ConsumerState<WhatsAppPreviewSheet> {
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final isTextTooLong = WhatsAppUtil.isTextTooLongForUrl(_textController.text);
+    final isDark = AppColors.isDark(context);
 
     return Container(
       constraints: BoxConstraints(
         maxHeight: MediaQuery.of(context).size.height * 0.88,
       ),
       margin: EdgeInsets.only(bottom: bottomInset),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: AppColors.getCardColor(context),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -263,7 +266,7 @@ class _WhatsAppPreviewSheetState extends ConsumerState<WhatsAppPreviewSheet> {
               width: 44,
               height: 5,
               decoration: BoxDecoration(
-                color: Colors.grey.shade300,
+                color: isDark ? const Color(0xFF475569) : Colors.grey.shade300,
                 borderRadius: BorderRadius.circular(10),
               ),
             ),
@@ -289,28 +292,28 @@ class _WhatsAppPreviewSheetState extends ConsumerState<WhatsAppPreviewSheet> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Kirim ke WhatsApp',
-                          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textMain),
+                          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.getTextMain(context)),
                         ),
                         Text(
                           widget.singleIssue != null
                               ? 'Ringkasan 1 Kendala'
                               : '$_itemCount kendala${_isTruncated ? ' (dibatasi 20 item)' : ''}',
-                          style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
+                          style: TextStyle(fontSize: 12, color: AppColors.getTextMuted(context)),
                         ),
                       ],
                     ),
                   ],
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close_rounded),
+                  icon: Icon(Icons.close_rounded, color: AppColors.getTextMuted(context)),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
             ),
           ),
-          const Divider(height: 20),
+          Divider(height: 20, color: AppColors.getCardBorder(context)),
 
           // Body
           Expanded(
@@ -326,23 +329,10 @@ class _WhatsAppPreviewSheetState extends ConsumerState<WhatsAppPreviewSheet> {
                     ),
                   )
                 : _errorMessage != null
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.error_outline_rounded, size: 48, color: AppColors.statusRejected),
-                              const SizedBox(height: 12),
-                              Text('Gagal: $_errorMessage', style: const TextStyle(color: AppColors.statusRejected)),
-                              const SizedBox(height: 16),
-                              ElevatedButton(
-                                onPressed: _loadShareText,
-                                child: const Text('Coba Lagi'),
-                              ),
-                            ],
-                          ),
-                        ),
+                    ? ErrorView.unexpected(
+                        message: _errorMessage,
+                        isCompact: true,
+                        onRetry: _loadShareText,
                       )
                     : SingleChildScrollView(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -353,19 +343,19 @@ class _WhatsAppPreviewSheetState extends ConsumerState<WhatsAppPreviewSheet> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                               decoration: BoxDecoration(
-                                color: AppColors.backgroundLight,
+                                color: isDark ? const Color(0xFF131D31) : AppColors.backgroundLight,
                                 borderRadius: BorderRadius.circular(14),
-                                border: Border.all(color: AppColors.cardBorder),
+                                border: Border.all(color: AppColors.getCardBorder(context)),
                               ),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  const Expanded(
+                                  Expanded(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text('Sertakan Nama Pelanggan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                        Text('Sembunyikan untuk menjaga privasi pelanggan jika diperlukan', style: TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                                        Text('Sertakan Nama Pelanggan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.getTextMain(context))),
+                                        Text('Sembunyikan untuk menjaga privasi pelanggan jika diperlukan', style: TextStyle(fontSize: 11, color: AppColors.getTextMuted(context))),
                                       ],
                                     ),
                                   ),
@@ -386,12 +376,14 @@ class _WhatsAppPreviewSheetState extends ConsumerState<WhatsAppPreviewSheet> {
                             TextField(
                               controller: _phoneController,
                               keyboardType: TextInputType.phone,
+                              style: TextStyle(color: AppColors.getTextMain(context)),
                               decoration: InputDecoration(
                                 labelText: 'Nomor WhatsApp Tujuan (Opsional)',
                                 hintText: 'Contoh: 08123456789 atau 628123456789',
+                                hintStyle: TextStyle(color: isDark ? Colors.white54 : AppColors.textMuted),
                                 prefixIcon: const Icon(Icons.phone_outlined, size: 20),
                                 helperText: 'Jika kosong, WhatsApp akan membuka dialog pilih kontak',
-                                helperStyle: const TextStyle(fontSize: 11),
+                                helperStyle: TextStyle(fontSize: 11, color: AppColors.getTextMuted(context)),
                                 suffixIcon: _phoneController.text.isNotEmpty
                                     ? IconButton(
                                         icon: const Icon(Icons.clear, size: 18),
@@ -416,14 +408,18 @@ class _WhatsAppPreviewSheetState extends ConsumerState<WhatsAppPreviewSheet> {
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(color: AppColors.accentAmber.withValues(alpha: 0.4)),
                                 ),
-                                child: const Row(
+                                child: Row(
                                   children: [
-                                    Icon(Icons.info_outline_rounded, color: AppColors.accentAmber, size: 20),
-                                    SizedBox(width: 10),
+                                    const Icon(Icons.info_outline_rounded, color: AppColors.accentAmber, size: 20),
+                                    const SizedBox(width: 10),
                                     Expanded(
                                       child: Text(
                                         'Teks melebihi 1.800 karakter. Tombol Buka WhatsApp mungkin dibatasi browser. Disarankan gunakan tombol "Salin Teks".',
-                                        style: TextStyle(fontSize: 11, color: Color(0xFF92400E), height: 1.3),
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: isDark ? const Color(0xFFFDE68A) : const Color(0xFF92400E),
+                                          height: 1.3,
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -434,15 +430,15 @@ class _WhatsAppPreviewSheetState extends ConsumerState<WhatsAppPreviewSheet> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text(
+                                Text(
                                   'Pratinjau Pesan (Dapat Diedit)',
-                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textMain),
+                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.getTextMain(context)),
                                 ),
                                 Text(
                                   '${_textController.text.length} karakter',
                                   style: TextStyle(
                                     fontSize: 11,
-                                    color: isTextTooLong ? AppColors.statusRejected : AppColors.textMuted,
+                                    color: isTextTooLong ? AppColors.statusRejected : AppColors.getTextMuted(context),
                                     fontWeight: isTextTooLong ? FontWeight.bold : FontWeight.normal,
                                   ),
                                 ),
@@ -453,13 +449,22 @@ class _WhatsAppPreviewSheetState extends ConsumerState<WhatsAppPreviewSheet> {
                             TextField(
                               controller: _textController,
                               maxLines: 10,
-                              style: const TextStyle(fontFamily: 'monospace', fontSize: 12, height: 1.4),
+                              style: TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 12,
+                                height: 1.4,
+                                color: AppColors.getTextMain(context),
+                              ),
                               decoration: InputDecoration(
-                                fillColor: AppColors.backgroundLight,
+                                fillColor: isDark ? const Color(0xFF131D31) : AppColors.backgroundLight,
                                 filled: true,
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(14),
-                                  borderSide: const BorderSide(color: AppColors.cardBorder),
+                                  borderSide: BorderSide(color: AppColors.getCardBorder(context)),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                  borderSide: BorderSide(color: AppColors.getCardBorder(context)),
                                 ),
                                 contentPadding: const EdgeInsets.all(14),
                               ),
@@ -475,8 +480,8 @@ class _WhatsAppPreviewSheetState extends ConsumerState<WhatsAppPreviewSheet> {
           Container(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
             decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border(top: BorderSide(color: Colors.grey.shade200)),
+              color: AppColors.getCardColor(context),
+              border: Border(top: BorderSide(color: AppColors.getCardBorder(context))),
             ),
             child: Row(
               children: [
